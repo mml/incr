@@ -41,6 +41,18 @@
   (define (emit-end-function name)
     (emit ".size ~a, .-~a" name name))
 
+  (define (immediate? x)
+    (cond [(integer? x) #t]
+	  [(boolean? x) #t]
+	  [else #f]))
+
+  (define (primcall? x)
+    (if (list? x)
+	(case (car x)
+	  [('add1) #t]
+	  [else #f])
+	#f))
+
   (define (immediate-rep x)
     (cond [(integer? x) (shift fixnum-shift x)]
 	  [(boolean? x)
@@ -53,7 +65,11 @@
     (emit-prologue)
 
     (emit-begin-function "scheme_entry")
-    (emit "mov r0, #~a" (immediate-rep x))
+    (cond
+      [(immediate? x)
+       (emit "mov r0, #~a" (immediate-rep x))]
+      [else (error 'compile-program "Unsupported expression ~s" (pretty-format x))])
+
     (emit "bx lr")
     (emit-end-function "scheme_entry")
 
