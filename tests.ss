@@ -5,3 +5,5 @@
 (test-case '42 "42")
 (test-case '65536 "65536")
 (test-case '-1 "-1")
+(test-case '#t "#t")
+(test-case '#f "#f")

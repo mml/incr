@@ -1,9 +1,17 @@
 (load "test-driver.ss")
 
 (define (compile-program x)
-  (define fixnum-shift 2)
   (define (shift n-bits val)
     (arithmetic-shift val n-bits))
+  (define bitwise-or bitwise-ior)
+
+  ;;; Fixnums end in #b00.
+  ;;; All other types end in #b1111
+  (define fixnum-shift 2)
+  (define boolean-mask #b10111111)
+  (define boolean-tag #b00101111)
+  (define false-value (bitwise-or #b1111 (shift 4 #b0010)))
+  (define true-value (bitwise-or #b1111 (shift 4 #b0110)))
 
   (define (emit-prologue)
     (emit ".arch armv6")
@@ -35,6 +43,10 @@
 
   (define (immediate-rep x)
     (cond [(integer? x) (shift fixnum-shift x)]
+	  [(boolean? x)
+	   (case x
+	     [(#f) false-value]
+	     [(#t) true-value])]
 	  [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
   (define (emit-program x)
