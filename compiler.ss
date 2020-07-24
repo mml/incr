@@ -1,5 +1,9 @@
 (load "test-driver.ss")
 
+(define fixnum-shift 2)
+(define (shift n-bits val)
+  (arithmetic-shift val n-bits))
+
 (define (emit-prologue)
   (emit ".arch armv6")
   (emit ".eabi_attribute 28, 1")
@@ -28,11 +32,15 @@
 (define (emit-end-function name)
   (emit ".size ~a, .-~a" name name))
 
+(define (immediate-rep x)
+  (cond [(integer? x) (shift fixnum-shift x)]
+	[else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
+
 (define (emit-program x)
   (emit-prologue)
 
   (emit-begin-function "scheme_entry")
-  (emit "mov r0, #~a" x)
+  (emit "mov r0, #~a" (immediate-rep x))
   (emit "bx lr")
   (emit-end-function "scheme_entry")
 
