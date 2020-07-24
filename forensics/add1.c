@@ -1,3 +1,3 @@
 int add1(int x) {
-	return x+1;
+	return x+ (1<<2);
 }

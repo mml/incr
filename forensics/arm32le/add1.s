@@ -22,7 +22,7 @@ add1:
 	@ args = 0, pretend = 0, frame = 0
 	@ frame_needed = 0, uses_anonymous_args = 0
 	@ link register save eliminated.
-	add	r0, r0, #1
+	add	r0, r0, #4
 	bx	lr
 	.size	add1, .-add1
 	.ident	"GCC: (Raspbian 8.3.0-6+rpi1) 8.3.0"
