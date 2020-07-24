@@ -43,23 +43,23 @@
 
   (define (immediate? x)
     (cond [(integer? x) #t]
-	  [(boolean? x) #t]
-	  [else #f]))
+          [(boolean? x) #t]
+          [else #f]))
 
   (define (primcall? x)
     (if (list? x)
-	(case (car x)
-	  [('add1) #t]
-	  [else #f])
-	#f))
+        (case (car x)
+          [('add1) #t]
+          [else #f])
+        #f))
 
   (define (immediate-rep x)
     (cond [(integer? x) (shift fixnum-shift x)]
-	  [(boolean? x)
-	   (case x
-	     [(#f) false-value]
-	     [(#t) true-value])]
-	  [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
+          [(boolean? x)
+           (case x
+             [(#f) false-value]
+             [(#t) true-value])]
+          [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
   (define (emit-program x)
     (emit-prologue)
