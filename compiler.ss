@@ -61,14 +61,17 @@
              [(#t) true-value])]
           [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
+  (define (emit-expr expr)
+    (cond
+      [(immediate? x)
+       (emit "mov r0, #~a" (immediate-rep x))]
+      [else (error 'compile-program "Unsupported expression ~s" (pretty-format x))]))
+
   (define (emit-program x)
     (emit-prologue)
 
     (emit-begin-function "scheme_entry")
-    (cond
-      [(immediate? x)
-       (emit "mov r0, #~a" (immediate-rep x))]
-      [else (error 'compile-program "Unsupported expression ~s" (pretty-format x))])
+    (emit-expr x)
 
     (emit "bx lr")
     (emit-end-function "scheme_entry")
