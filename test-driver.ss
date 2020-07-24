@@ -42,7 +42,7 @@
 		      (f)]))))))))
 
 (define (test-case expr expected)
-  (printf "Test: ~s~n" (pretty-format expr))
+  (printf "Test: ~a~n" (pretty-format expr))
   (run-compile expr)
   (build)
   (execute)

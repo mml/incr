@@ -7,3 +7,6 @@
 (test-case '-1 "-1")
 (test-case '#t "#t")
 (test-case '#f "#f")
+(test-case '(add1 0) "1")
+(test-case '(add1 (add1 0)) "2")
+(test-case '(add1 (add1 -2)) "0")

@@ -49,9 +49,12 @@
   (define (primcall? x)
     (if (list? x)
         (case (car x)
-          [('add1) #t]
+          [(add1) #t]
           [else #f])
         #f))
+
+  (define primcall-op car)
+  (define primcall-operand1 cadr)
 
   (define (immediate-rep x)
     (cond [(integer? x) (shift fixnum-shift x)]
@@ -63,9 +66,15 @@
 
   (define (emit-expr expr)
     (cond
-      [(immediate? x)
-       (emit "mov r0, #~a" (immediate-rep x))]
-      [else (error 'compile-program "Unsupported expression ~s" (pretty-format x))]))
+      [(immediate? expr)
+       (emit "mov r0, #~a" (immediate-rep expr))]
+      [(primcall? expr)
+       (case (primcall-op expr)
+         [(add1)
+          (emit-expr (primcall-operand1 expr))
+          (emit "add r0,r0,#~a" (immediate-rep 1))]
+         [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])]
+      [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
 
   (define (emit-program x)
     (emit-prologue)
