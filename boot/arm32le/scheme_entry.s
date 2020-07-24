@@ -25,5 +25,18 @@ scheme_entry:
 	mov	r0, #42
 	bx	lr
 	.size	scheme_entry, .-scheme_entry
+	.align	2
+	.global	foo
+	.syntax unified
+	.arm
+	.fpu vfp
+	.type	foo, %function
+foo:
+	@ args = 0, pretend = 0, frame = 0
+	@ frame_needed = 0, uses_anonymous_args = 0
+	@ link register save eliminated.
+	mov	r0, #22
+	bx	lr
+	.size	foo, .-foo
 	.ident	"GCC: (Raspbian 8.3.0-6+rpi1) 8.3.0"
 	.section	.note.GNU-stack,"",%progbits
