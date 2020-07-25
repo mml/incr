@@ -14,14 +14,20 @@
     "x-test-program.s"
     string?))
 
+(define (object-file) (string-replace (output-file) ".s" ".o"))
+
 (define (run-compile expr)
   (let ([p (open-output-file (output-file) #:exists 'replace)])
     (parameterize ([compile-port p])
       (compile-program expr))
     (flush-output p)))
 
+(define (assemble)
+  (unless (system-successful? (format "as -o ~a ~a" (object-file) (output-file)))
+    (error 'as "assemble error")))
+
 (define (build)
-  (unless (system-successful? (format "gcc -DNO_NEWLINE -o x-test-program driver.c ~a" (output-file)))
+  (unless (system-successful? (format "gcc -DNO_NEWLINE -o x-test-program driver.c ~a" (object-file)))
     (error 'gcc "build error")))
 
 (define (execute)
@@ -44,6 +50,7 @@
 (define (test-case expr expected)
   (printf "Test: ~a~n" (pretty-format expr))
   (run-compile expr)
+  (assemble)
   (build)
   (execute)
   (unless (string=? expected (get-string))

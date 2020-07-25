@@ -74,20 +74,42 @@
              char-tag)]
           [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
-  ; See http://computerscience.chemeketa.edu/armTutorial/Basics/Immediates.html
+  (define (padbits x n-digits)
+    (list->string
+      (reverse
+        (take (reverse (append (make-list n-digits #\0) (string->list (format "~b" x))))
+              n-digits))))
+
+  (define (register->number s)
+    (let ([cs (string->list s)])
+      (cond
+        [(null? cs) (error 'compile-program "Internal error: empty string is not a valid register")]
+        [else
+          (case (car cs)
+            [(#\r) (string->number (list->string (cdr cs)))]
+            [else (error 'compile-program "Don't understand register ~s." s)])])))
+
+
+
+  (define (emit-move32 dest val)
+    (define no-condition "1110")
+    (define mov  "00110000")
+    (define movt "00110100")
+    (emit "  /* move32 ~a <- ~a */" dest val)
+    (let ([rd (padbits (register->number dest) 4)]
+          [lo12 (bitwise-and val #xfff)]
+          [lo4 (shift -12 (bitwise-and val #xf000))]
+          [hi (shift -16 val)])
+      (emit "  /* mov ~a,#~a */" dest (bitwise-and val #xffff))
+      (emit "  .word 0b~a~a~a~a~a" no-condition mov (padbits lo4 4) rd (padbits lo12 12))
+      (unless (zero? hi)
+        (let ([hi12 (bitwise-and hi #xfff)]
+              [hi4 (shift -12 (bitwise-and hi #xf000))])
+          (emit "  /* movt ~a,#~a */" dest hi)
+          (emit "  .word 0b~a~a~a~a~a" no-condition movt (padbits hi4 4) rd (padbits hi12 12))))))
+
   (define (emit-move dest val)
-    (cond
-      [(< val 257) (emit "mov r0,#~a" val)]
-      [else
-        (emit "mov r0,#~a" 256)
-        (let loop ([val (- val 256)])
-          (cond
-            [(zero? val) (void)]
-            [(< val 257) (emit "add r0,r0,#~a" val)]
-            [(> val #xff00) (emit "add r0,r0,#~a" #xff00)
-                            (loop (- val #xff00))]
-            [else (emit "add r0,r0,#~a" 256)
-                  (loop (- val 256))]))]))
+    (emit-move32 dest val))
 
   (define (emit-expr expr)
     (cond
