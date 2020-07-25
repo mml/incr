@@ -91,22 +91,27 @@
 
 
 
-  (define (emit-move32 dest val)
-    (define no-condition "1110")
-    (define mov  "00110000")
-    (define movt "00110100")
-    (emit "  /* move32 ~a <- ~a */" dest val)
-    (let ([rd (padbits (register->number dest) 4)]
-          [lo12 (bitwise-and val #xfff)]
-          [lo4 (shift -12 (bitwise-and val #xf000))]
-          [hi (shift -16 val)])
-      (emit "  /* mov ~a,#~a */" dest (bitwise-and val #xffff))
-      (emit "  .word 0b~a~a~a~a~a" no-condition mov (padbits lo4 4) rd (padbits lo12 12))
-      (unless (zero? hi)
-        (let ([hi12 (bitwise-and hi #xfff)]
-              [hi4 (shift -12 (bitwise-and hi #xf000))])
-          (emit "  /* movt ~a,#~a */" dest hi)
-          (emit "  .word 0b~a~a~a~a~a" no-condition movt (padbits hi4 4) rd (padbits hi12 12))))))
+  (define emit-move32
+    (case-lambda
+      [(dest val) (emit-move32 'always dest val)]
+      [(condition dest val)
+       (let ([cbits (case condition
+                      [(always) "1110"]
+                      [else (error 'compile-program "Unsupported condition ~a" condition)])])
+         (define mov  "00110000")
+         (define movt "00110100")
+         (emit "  /* move32 ~a <- ~a */" dest val)
+         (let ([rd (padbits (register->number dest) 4)]
+               [lo12 (bitwise-and val #xfff)]
+               [lo4 (shift -12 (bitwise-and val #xf000))]
+               [hi (shift -16 val)])
+           (emit "  /* mov ~a,#~a */" dest (bitwise-and val #xffff))
+           (emit "  .word 0b~a~a~a~a~a" cbits mov (padbits lo4 4) rd (padbits lo12 12))
+           (unless (zero? hi)
+             (let ([hi12 (bitwise-and hi #xfff)]
+                   [hi4 (shift -12 (bitwise-and hi #xf000))])
+               (emit "  /* movt ~a,#~a */" dest hi)
+               (emit "  .word 0b~a~a~a~a~a" cbits movt (padbits hi4 4) rd (padbits hi12 12))))))]))
 
   (define (emit-move dest val)
     (emit-move32 dest val))
