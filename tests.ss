@@ -28,8 +28,21 @@
 (test-case '4095 "4095")
 (test-case '65535 "65535")
 (test-case '-1 "-1")
+
+; booleans
 (test-case '#t "#t")
 (test-case '#f "#f")
+
+; characters
+(test-case '#\A "#\\A")
+
+;;; unary primitives
+; add1
 (test-case '(add1 0) "1")
 (test-case '(add1 (add1 0)) "2")
 (test-case '(add1 (add1 -2)) "0")
+
+;; integer<->char
+(test-case '(integer->char 65) "#\\A")
+(test-case '(char->integer #\A) "65")
+(test-case '(integer->char (add1 (char->integer #\l))) "#\\m")

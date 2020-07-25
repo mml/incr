@@ -10,6 +10,10 @@
 #define FALSE_VALUE 0b00101111
 #define TRUE_VALUE 0b01101111
 
+#define CHAR_MASK 0b11111111
+#define CHAR_TAG 0b00001111
+#define CHAR_SHIFT 8
+
 extern int scheme_entry();
 
 int main(int argc, char **argv) {
@@ -21,6 +25,9 @@ int main(int argc, char **argv) {
 		printf("#f");
 	} else if (val == TRUE_VALUE) {
 		printf("#t");
+  } else if ((val & CHAR_MASK) == CHAR_TAG) {
+    char c = val >> CHAR_SHIFT;
+    printf("#\\%c", c);
 	} else {
 		err(1, "Unknown value 0x%04x\n", val);
 	}

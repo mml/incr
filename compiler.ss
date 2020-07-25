@@ -12,6 +12,9 @@
   (define boolean-tag #b00101111)
   (define false-value (bitwise-or #b1111 (shift 4 #b0010)))
   (define true-value (bitwise-or #b1111 (shift 4 #b0110)))
+  (define char-mask #b11111111)
+  (define char-tag #b00001111)
+  (define char-shift 8)
 
   (define (emit-prologue)
     (emit "  .arch armv8-a")
@@ -46,12 +49,13 @@
   (define (immediate? x)
     (cond [(integer? x) #t]
           [(boolean? x) #t]
+          [(char? x) #t]
           [else #f]))
 
   (define (primcall? x)
     (if (list? x)
         (case (car x)
-          [(add1) #t]
+          [(add1 integer->char char->integer) #t]
           [else #f])
         #f))
 
@@ -64,6 +68,10 @@
            (case x
              [(#f) false-value]
              [(#t) true-value])]
+          [(char? x)
+           (bitwise-or
+             (shift char-shift (char->integer x))
+             char-tag)]
           [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
   ; See http://computerscience.chemeketa.edu/armTutorial/Basics/Immediates.html
@@ -91,6 +99,13 @@
          [(add1)
           (emit-expr (primcall-operand1 expr))
           (emit "add r0,r0,#~a" (immediate-rep 1))]
+         [(integer->char)
+          (emit-expr (primcall-operand1 expr))
+          (emit "lsl r0,r0,#~a" (- char-shift fixnum-shift))
+          (emit "orr r0,r0,#~a" char-tag)]
+         [(char->integer)
+          (emit-expr (primcall-operand1 expr))
+          (emit "asr r0,r0,#~a" (- char-shift fixnum-shift))]
          [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])]
       [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
 
