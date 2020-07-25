@@ -55,7 +55,7 @@
   (define (primcall? x)
     (if (list? x)
         (case (car x)
-          [(add1 sub1 integer->char char->integer zero?) #t]
+          [(add1 sub1 integer->char char->integer zero? not) #t]
           [else #f])
         #f))
 
@@ -133,6 +133,11 @@
          [(zero?)
           (emit-expr (primcall-operand1 expr))
           (emit "cmp r0,#~a" (immediate-rep 0))
+          (emit-move32 'eq "r0" (immediate-rep #t))
+          (emit-move32 'ne "r0" (immediate-rep #f))]
+         [(not)
+          (emit-expr (primcall-operand1 expr))
+          (emit "cmp r0,#~a" (immediate-rep #f))
           (emit-move32 'eq "r0" (immediate-rep #t))
           (emit-move32 'ne "r0" (immediate-rep #f))]
          [(integer->char)
