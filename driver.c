@@ -21,14 +21,14 @@ extern int scheme_entry();
 int main(int argc, char **argv) {
 	int val = scheme_entry();
 
-	if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
-		printf("%d", val >> FIXNUM_SHIFT);
+  if (val == NULL_VALUE) {
+    printf("()");
 	} else if (val == FALSE_VALUE) {
 		printf("#f");
 	} else if (val == TRUE_VALUE) {
 		printf("#t");
-  } else if (val == NULL_VALUE) {
-    printf("()");
+	} else if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
+		printf("%d", val >> FIXNUM_SHIFT);
   } else if ((val & CHAR_MASK) == CHAR_TAG) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);
