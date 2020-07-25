@@ -15,6 +15,7 @@
   (define char-mask #b11111111)
   (define char-tag #b00001111)
   (define char-shift 8)
+  (define null-value #b00111111)
 
   (define (emit-prologue)
     (emit "  .arch armv8-a")
@@ -50,14 +51,18 @@
     (cond [(integer? x) #t]
           [(boolean? x) #t]
           [(char? x) #t]
+          [(null? x) #t]
           [else #f]))
 
   (define (primcall? x)
     (if (list? x)
-        (case (car x)
-          [(add1 sub1 integer->char char->integer zero? not) #t]
-          [else #f])
-        #f))
+        (cond
+          [(null? x) #f]
+          [else
+            (case (car x)
+              [(add1 sub1 integer->char char->integer zero? not) #t]
+              [else #f])])
+            #f))
 
   (define primcall-op car)
   (define primcall-operand1 cadr)
@@ -72,6 +77,7 @@
            (bitwise-or
              (shift char-shift (char->integer x))
              char-tag)]
+          [(null? x) null-value]
           [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
   (define (padbits x n-digits)

@@ -36,6 +36,9 @@
 ; characters
 (test-case '#\A "#\\A")
 
+; null
+(test-case '() "()")
+
 ;;; unary primitives
 ; add1
 (test-case '(add1 0) "1")

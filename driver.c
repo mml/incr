@@ -14,6 +14,8 @@
 #define CHAR_TAG 0b00001111
 #define CHAR_SHIFT 8
 
+#define NULL_VALUE 0b00111111
+
 extern int scheme_entry();
 
 int main(int argc, char **argv) {
@@ -25,6 +27,8 @@ int main(int argc, char **argv) {
 		printf("#f");
 	} else if (val == TRUE_VALUE) {
 		printf("#t");
+  } else if (val == NULL_VALUE) {
+    printf("()");
   } else if ((val & CHAR_MASK) == CHAR_TAG) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);
