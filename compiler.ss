@@ -60,7 +60,7 @@
           [(null? x) #f]
           [else
             (case (car x)
-              [(add1 sub1 integer->char char->integer zero? not null? + -) #t]
+              [(add1 sub1 integer->char char->integer zero? not null? + - = *) #t]
               [else #f])])
             #f))
 
@@ -167,6 +167,21 @@
        (emit-expr (primcall-operand2 expr))
        (emit "  pop {r1}")
        (emit "  sub r0,r1,r0")]
+      [(=)
+       (emit-expr (primcall-operand1 expr))
+       (emit "  push {r0}")
+       (emit-expr (primcall-operand2 expr))
+       (emit "  pop {r1}")
+       (emit "  cmp r0,r1")
+       (emit-move32 'eq "r0" (immediate-rep #t))
+       (emit-move32 'ne "r0" (immediate-rep #f))]
+      [(*)
+       (emit-expr (primcall-operand1 expr))
+       (emit "  push {r0}")
+       (emit-expr (primcall-operand2 expr))
+       (emit "  pop {r1}")
+       (emit "  asr r0,r0,#~a" fixnum-shift)
+       (emit "  mul r0,r0,r1")]
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
 
   (define (emit-expr expr)
