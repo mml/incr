@@ -47,6 +47,13 @@
 (test-case '(sub1 (sub1 0)) "-2")
 (test-case '(sub1 (sub1 2)) "0")
 
+; zero?
+(test-case '(zero? 0) "#t")
+(test-case '(zero? 1) "#f")
+(test-case '(zero? -1) "#f")
+(test-case '(zero? #\t) "#f")
+(test-case '(zero? #\f) "#f")
+
 (test-case '(sub1 (add1 0)) "0")
 (test-case '(add1 (sub1 0)) "0")
 

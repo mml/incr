@@ -55,7 +55,7 @@
   (define (primcall? x)
     (if (list? x)
         (case (car x)
-          [(add1 sub1 integer->char char->integer) #t]
+          [(add1 sub1 integer->char char->integer zero?) #t]
           [else #f])
         #f))
 
@@ -97,7 +97,9 @@
       [(condition dest val)
        (let ([cbits (case condition
                       [(always) "1110"]
-                      [else (error 'compile-program "Unsupported condition ~a" condition)])])
+                      [(eq) "0000"]
+                      [(ne) "0001"]
+                      [else (error 'compile-program "Unsupported MOV condition ~a" condition)])])
          (define mov  "00110000")
          (define movt "00110100")
          (emit "  /* move32 ~a <- ~a */" dest val)
@@ -128,6 +130,11 @@
          [(sub1)
           (emit-expr (primcall-operand1 expr))
           (emit "sub r0,r0,#~a" (immediate-rep 1))]
+         [(zero?)
+          (emit-expr (primcall-operand1 expr))
+          (emit "cmp r0,#~a" (immediate-rep 0))
+          (emit-move32 'eq "r0" (immediate-rep #t))
+          (emit-move32 'ne "r0" (immediate-rep #f))]
          [(integer->char)
           (emit-expr (primcall-operand1 expr))
           (emit "lsl r0,r0,#~a" (- char-shift fixnum-shift))
