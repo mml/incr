@@ -62,6 +62,10 @@
 (test-case '(not #t) "#f")
 (test-case '(not 0) "#f")
 
+; null?
+(test-case '(null? ()) "#t")
+(test-case '(null? #f) "#f")
+
 (test-case '(sub1 (add1 0)) "0")
 (test-case '(add1 (sub1 0)) "0")
 
