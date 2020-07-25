@@ -76,3 +76,11 @@
 (test-case '(integer->char 65) "#\\A")
 (test-case '(char->integer #\A) "65")
 (test-case '(integer->char (add1 (char->integer #\l))) "#\\m")
+
+;;; binary primitives
+; +
+
+(test-case '(+ 2 2) "4")
+(test-case '(+ 0 0) "0")
+(test-case '(+ -1000 1000) "0")
+(test-case '(+ 2048 2048) "4096")

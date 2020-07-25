@@ -60,12 +60,13 @@
           [(null? x) #f]
           [else
             (case (car x)
-              [(add1 sub1 integer->char char->integer zero? not null?) #t]
+              [(add1 sub1 integer->char char->integer zero? not null? +) #t]
               [else #f])])
             #f))
 
   (define primcall-op car)
   (define primcall-operand1 cadr)
+  (define primcall-operand2 caddr)
 
   (define (immediate-rep x)
     (cond [(integer? x) (shift fixnum-shift x)]
@@ -89,13 +90,12 @@
   (define (register->number s)
     (let ([cs (string->list s)])
       (cond
-        [(null? cs) (error 'compile-program "Internal error: empty string is not a valid register")]
+        [(null? cs) (error 'compile-program
+                           "Internal error: empty string is not a valid register")]
         [else
           (case (car cs)
             [(#\r) (string->number (list->string (cdr cs)))]
             [else (error 'compile-program "Don't understand register ~s." s)])])))
-
-
 
   (define emit-move32
     (case-lambda
@@ -119,7 +119,8 @@
              (let ([hi12 (bitwise-and hi #xfff)]
                    [hi4 (shift -12 (bitwise-and hi #xf000))])
                (emit "  /* movt ~a,#~a */" dest hi)
-               (emit "  .word 0b~a~a~a~a~a" cbits movt (padbits hi4 4) rd (padbits hi12 12))))))]))
+               (emit "  .word 0b~a~a~a~a~a" cbits movt (padbits hi4 4) rd (padbits hi12 12))))))]
+      ))
 
   (define (emit-move dest val)
     (emit-move32 dest val))
@@ -154,6 +155,12 @@
       [(char->integer)
        (emit-expr (primcall-operand1 expr))
        (emit "asr r0,r0,#~a" (- char-shift fixnum-shift))]
+      [(+)
+       (emit-expr (primcall-operand1 expr))
+       (emit "  push {r0}")
+       (emit-expr (primcall-operand2 expr))
+       (emit "  pop {r1}")
+       (emit "  add r0,r0,r1")]
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
 
   (define (emit-expr expr)
