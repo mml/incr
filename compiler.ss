@@ -124,41 +124,43 @@
   (define (emit-move dest val)
     (emit-move32 dest val))
 
+  (define (emit-primitive-call expr)
+    (case (primcall-op expr)
+      [(add1)
+       (emit-expr (primcall-operand1 expr))
+       (emit "add r0,r0,#~a" (immediate-rep 1))]
+      [(sub1)
+       (emit-expr (primcall-operand1 expr))
+       (emit "sub r0,r0,#~a" (immediate-rep 1))]
+      [(zero?)
+       (emit-expr (primcall-operand1 expr))
+       (emit "cmp r0,#~a" (immediate-rep 0))
+       (emit-move32 'eq "r0" (immediate-rep #t))
+       (emit-move32 'ne "r0" (immediate-rep #f))]
+      [(not)
+       (emit-expr (primcall-operand1 expr))
+       (emit "cmp r0,#~a" (immediate-rep #f))
+       (emit-move32 'eq "r0" (immediate-rep #t))
+       (emit-move32 'ne "r0" (immediate-rep #f))]
+      [(null?)
+       (emit-expr (primcall-operand1 expr))
+       (emit "cmp r0,#~a" (immediate-rep '()))
+       (emit-move32 'eq "r0" (immediate-rep #t))
+       (emit-move32 'ne "r0" (immediate-rep #f))]
+      [(integer->char)
+       (emit-expr (primcall-operand1 expr))
+       (emit "lsl r0,r0,#~a" (- char-shift fixnum-shift))
+       (emit "orr r0,r0,#~a" char-tag)]
+      [(char->integer)
+       (emit-expr (primcall-operand1 expr))
+       (emit "asr r0,r0,#~a" (- char-shift fixnum-shift))]
+      [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
+
   (define (emit-expr expr)
     (cond
       [(immediate? expr)
        (emit-move "r0" (immediate-rep expr))]
-      [(primcall? expr)
-       (case (primcall-op expr)
-         [(add1)
-          (emit-expr (primcall-operand1 expr))
-          (emit "add r0,r0,#~a" (immediate-rep 1))]
-         [(sub1)
-          (emit-expr (primcall-operand1 expr))
-          (emit "sub r0,r0,#~a" (immediate-rep 1))]
-         [(zero?)
-          (emit-expr (primcall-operand1 expr))
-          (emit "cmp r0,#~a" (immediate-rep 0))
-          (emit-move32 'eq "r0" (immediate-rep #t))
-          (emit-move32 'ne "r0" (immediate-rep #f))]
-         [(not)
-          (emit-expr (primcall-operand1 expr))
-          (emit "cmp r0,#~a" (immediate-rep #f))
-          (emit-move32 'eq "r0" (immediate-rep #t))
-          (emit-move32 'ne "r0" (immediate-rep #f))]
-         [(null?)
-          (emit-expr (primcall-operand1 expr))
-          (emit "cmp r0,#~a" (immediate-rep '()))
-          (emit-move32 'eq "r0" (immediate-rep #t))
-          (emit-move32 'ne "r0" (immediate-rep #f))]
-         [(integer->char)
-          (emit-expr (primcall-operand1 expr))
-          (emit "lsl r0,r0,#~a" (- char-shift fixnum-shift))
-          (emit "orr r0,r0,#~a" char-tag)]
-         [(char->integer)
-          (emit-expr (primcall-operand1 expr))
-          (emit "asr r0,r0,#~a" (- char-shift fixnum-shift))]
-         [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])]
+      [(primcall? expr) (emit-primitive-call expr)]
       [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
 
   (define (emit-program x)
