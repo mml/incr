@@ -66,10 +66,26 @@
              [(#t) true-value])]
           [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
+  ; See http://computerscience.chemeketa.edu/armTutorial/Basics/Immediates.html
+  (define (emit-move dest val)
+    (cond
+      [(< val 257) (emit "mov r0,#~a" val)]
+      [else
+        (emit "mov r0,#~a" 256)
+        (let loop ([val (- val 256)])
+          (cond
+            [(zero? val) (void)]
+            [(< val 257) (emit "add r0,r0,#~a" val)]
+            [(> val #xff00) (emit "add r0,r0,#~a" #xff00)
+                            (loop (- val #xff00))]
+            [else (emit "add r0,r0,#~a" 256)
+                  (loop (- val 256))]))]))
+
   (define (emit-expr expr)
     (cond
       [(immediate? expr)
-       (emit "mov r0, #~a" (immediate-rep expr))]
+       ;(emit "mov r0, #~a" (immediate-rep expr))
+       (emit-move "r0" (immediate-rep expr))]
       [(primcall? expr)
        (case (primcall-op expr)
          [(add1)
