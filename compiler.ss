@@ -60,7 +60,7 @@
           [(null? x) #f]
           [else
             (case (car x)
-              [(add1 sub1 integer->char char->integer zero? not null? +) #t]
+              [(add1 sub1 integer->char char->integer zero? not null? + -) #t]
               [else #f])])
             #f))
 
@@ -161,6 +161,12 @@
        (emit-expr (primcall-operand2 expr))
        (emit "  pop {r1}")
        (emit "  add r0,r0,r1")]
+      [(-)
+       (emit-expr (primcall-operand1 expr))
+       (emit "  push {r0}")
+       (emit-expr (primcall-operand2 expr))
+       (emit "  pop {r1}")
+       (emit "  sub r0,r1,r0")]
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
 
   (define (emit-expr expr)
