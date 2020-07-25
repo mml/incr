@@ -55,7 +55,7 @@
   (define (primcall? x)
     (if (list? x)
         (case (car x)
-          [(add1 integer->char char->integer) #t]
+          [(add1 sub1 integer->char char->integer) #t]
           [else #f])
         #f))
 
@@ -114,13 +114,15 @@
   (define (emit-expr expr)
     (cond
       [(immediate? expr)
-       ;(emit "mov r0, #~a" (immediate-rep expr))
        (emit-move "r0" (immediate-rep expr))]
       [(primcall? expr)
        (case (primcall-op expr)
          [(add1)
           (emit-expr (primcall-operand1 expr))
           (emit "add r0,r0,#~a" (immediate-rep 1))]
+         [(sub1)
+          (emit-expr (primcall-operand1 expr))
+          (emit "sub r0,r0,#~a" (immediate-rep 1))]
          [(integer->char)
           (emit-expr (primcall-operand1 expr))
           (emit "lsl r0,r0,#~a" (- char-shift fixnum-shift))

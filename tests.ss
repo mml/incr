@@ -42,6 +42,17 @@
 (test-case '(add1 (add1 0)) "2")
 (test-case '(add1 (add1 -2)) "0")
 
+; sub1
+(test-case '(sub1 0) "-1")
+(test-case '(sub1 (sub1 0)) "-2")
+(test-case '(sub1 (sub1 2)) "0")
+
+(test-case '(sub1 (add1 0)) "0")
+(test-case '(add1 (sub1 0)) "0")
+
+(test-case '(sub1 (add1 123456789)) "123456789")
+(test-case '(add1 (sub1 123456789)) "123456789")
+
 ;; integer<->char
 (test-case '(integer->char 65) "#\\A")
 (test-case '(char->integer #\A) "65")
