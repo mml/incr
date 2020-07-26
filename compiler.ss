@@ -5,6 +5,7 @@
     (arithmetic-shift val n-bits))
   (define bitwise-or bitwise-ior)
   (define (wordsize) 4)
+  (define (empty-env) '())
 
   ;;; Fixnums end in #b00.
   ;;; All other types end in #b1111
@@ -126,77 +127,77 @@
   (define (emit-move dest val)
     (emit-move32 dest val))
 
-  (define (emit-primitive-call expr si)
+  (define (emit-primitive-call expr si env)
     (case (primcall-op expr)
       [(add1)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "add r0,r0,#~a" (immediate-rep 1))]
       [(sub1)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "sub r0,r0,#~a" (immediate-rep 1))]
       [(zero?)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "cmp r0,#~a" (immediate-rep 0))
        (emit-move32 'eq "r0" (immediate-rep #t))
        (emit-move32 'ne "r0" (immediate-rep #f))]
       [(not)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "cmp r0,#~a" (immediate-rep #f))
        (emit-move32 'eq "r0" (immediate-rep #t))
        (emit-move32 'ne "r0" (immediate-rep #f))]
       [(null?)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "cmp r0,#~a" (immediate-rep '()))
        (emit-move32 'eq "r0" (immediate-rep #t))
        (emit-move32 'ne "r0" (immediate-rep #f))]
       [(integer->char)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "lsl r0,r0,#~a" (- char-shift fixnum-shift))
        (emit "orr r0,r0,#~a" char-tag)]
       [(char->integer)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "asr r0,r0,#~a" (- char-shift fixnum-shift))]
       [(+)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "  str r0, [sp,#~a]" si)
-       (emit-expr (primcall-operand2 expr) (- si (wordsize)))
+       (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
        (emit "  ldr r1, [sp,#~a]" si)
        (emit "  add r0,r0,r1")]
       [(-)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "  str r0, [sp,#~a]" si)
-       (emit-expr (primcall-operand2 expr) (- si (wordsize)))
+       (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
        (emit "  ldr r1, [sp,#~a]" si)
        (emit "  sub r0,r1,r0")]
       [(=)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "  str r0, [sp,#~a]" si)
-       (emit-expr (primcall-operand2 expr) (- si (wordsize)))
+       (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
        (emit "  ldr r1, [sp,#~a]" si)
        (emit "  cmp r0,r1")
        (emit-move32 'eq "r0" (immediate-rep #t))
        (emit-move32 'ne "r0" (immediate-rep #f))]
       [(*)
-       (emit-expr (primcall-operand1 expr) si)
+       (emit-expr (primcall-operand1 expr) si env)
        (emit "  str r0, [sp,#~a]" si)
-       (emit-expr (primcall-operand2 expr) (- si (wordsize)))
+       (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
        (emit "  ldr r1, [sp,#~a]" si)
        (emit "  asr r0,r0,#~a" fixnum-shift) ; Can we combine with ldr?
        (emit "  mul r0,r0,r1")]
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
 
-  (define (emit-expr expr si)
+  (define (emit-expr expr si env)
     (cond
       [(immediate? expr)
        (emit-move "r0" (immediate-rep expr))]
-      [(primcall? expr) (emit-primitive-call expr si)]
+      [(primcall? expr) (emit-primitive-call expr si env)]
       [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
 
   (define (emit-program x)
     (emit-prologue)
 
     (emit-begin-function "scheme_entry")
-    (emit-expr x (- 0 (wordsize)))
+    (emit-expr x (- 0 (wordsize)) (empty-env))
 
     (emit "bx lr")
     (emit-end-function "scheme_entry")
