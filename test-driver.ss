@@ -47,7 +47,12 @@
 		[else (display c)
 		      (f)]))))))))
 
-(define (test-case expr expected)
+(define-syntax (test-case stx)
+  (syntax-case stx ()
+    [(_ expr expected)
+     (syntax (/test-case (quote expr) expected))]))
+
+(define (/test-case expr expected)
   (printf "Test: ~a~n" (pretty-format expr))
   (run-compile expr)
   (assemble)
