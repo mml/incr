@@ -1,6 +1,7 @@
 (load "test-driver.ss")
+(require racket/match)
 
-(define (compile-program x)
+(define (compile-program prog)
   (define (shift n-bits val)
     (arithmetic-shift val n-bits))
   (define bitwise-or bitwise-ior)
@@ -306,7 +307,7 @@
       [(variable-ref? expr) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
       [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
 
-  (define (emit-program x)
+  (define (emit-program ldef x)
     (emit-prologue)
 
     (emit-begin-function "scheme_entry")
@@ -319,4 +320,7 @@
     (emit ".ident \"mml scheme compiler\"")
     (emit ".section .note.GNU-stack,\"\",%progbits"))
 
-  (emit-program x))
+  (match prog
+         [(list 'labels (list ldef ___) expr)
+          (emit-program ldef expr)]
+         [expr (emit-program '() expr)]))
