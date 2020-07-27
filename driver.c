@@ -1,5 +1,7 @@
+#include <unistd.h>
 #include <stdio.h>
 #include <err.h>
+#include <sys/mman.h>
 
 #define FIXNUM_MASK 3
 #define FIXNUM_TAG 0
@@ -18,8 +20,44 @@
 
 extern int scheme_entry();
 
+static char* allocate_protected_space(int size){
+  int page = getpagesize();
+  int status;
+  int aligned_size = ((size + page - 1) / page) * page;
+  char* p = mmap(0, aligned_size + 2 * page,
+                 PROT_READ | PROT_WRITE,
+                 MAP_ANONYMOUS | MAP_PRIVATE,
+                 0, 0);
+  if (p == MAP_FAILED) {
+    err(1, "Can't allocate memory");
+  }
+  status = mprotect(p, page, PROT_NONE);
+  if (status != 0) {
+    err(1, "Can't protect memory");
+  }
+  status = mprotect(p + page + aligned_size, page, PROT_NONE);
+  if (status != 0) {
+    err(1, "Can't protect memory");
+  }
+  return (p + page);
+}
+
+static void deallocate_protected_space(char* p, int size){
+  int page = getpagesize();
+  int status;
+  int aligned_size = ((size + page - 1) / page) * page;
+  status = munmap(p - page, aligned_size + 2 * page);
+  if (status != 0) {
+    err(1, "Can't unmap memory");
+  }
+}
+
 int main(int argc, char **argv) {
-	int val = scheme_entry();
+  int heap_size = (16 * 4096); /* 16K values */
+  char *heap_base = allocate_protected_space(heap_size);
+  char *heap_top = heap_base + heap_size;
+
+	int val = scheme_entry(heap_base);
 
   if (val == NULL_VALUE) {
     printf("()");
@@ -33,11 +71,12 @@ int main(int argc, char **argv) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);
 	} else {
-		err(1, "Unknown value 0x%04x\n", val);
+		errx(1, "Unknown value 0x%04x\n", val);
 	}
 
 #ifndef NO_NEWLINE
 	printf("\n");
 #endif
+  deallocate_protected_space(heap_base, heap_size);
 	return 0;
 }

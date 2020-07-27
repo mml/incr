@@ -23,7 +23,7 @@
     (flush-output p)))
 
 (define (assemble)
-  (unless (system-successful? (format "as -o ~a ~a" (object-file) (output-file)))
+  (unless (system-successful? (format "as -g -o ~a ~a" (object-file) (output-file)))
     (error 'as "assemble error")))
 
 (define (build)

@@ -5,11 +5,13 @@
     (arithmetic-shift val n-bits))
   (define bitwise-or bitwise-ior)
   (define (wordsize) 4)
+  (define (cellsize) (* 2 wordsize))
   (define (empty-env) '())
   (define (extend-env name index env)
     (cons (cons name index) env))
   (define (lookup x env)
     (cdr (assoc x env)))
+  (define heap-register "r8")
 
   ;;; Fixnums end in #b00.
   ;;; All other types end in #b1111
@@ -22,6 +24,7 @@
   (define char-tag #b00001111)
   (define char-shift 8)
   (define null-value #b00111111)
+  (define pair-tag #b001)
 
   (define (make-labeler)
     (let ([x 0])
@@ -73,7 +76,8 @@
           [(null? x) #f]
           [else
             (case (car x)
-              [(add1 sub1 integer->char char->integer zero? not null? + - = * <) #t]
+              [(add1 sub1 integer->char char->integer zero? not null? + - = * <
+                cons car cdr cadr cddr caddr) #t]
               [else #f])])
             #f))
 
@@ -236,6 +240,34 @@
        (emit "  ldr r1, [sp,#~a]" si)
        (emit "  asr r0,r0,#~a" fixnum-shift) ; Can we combine with ldr?
        (emit "  mul r0,r0,r1")]
+      [(cons)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  str r0, [sp,#~a]" si) ; save car on the stack
+       (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
+       (emit "  str r0, [~a,#~a]" heap-register (wordsize)) ; store cdr
+       (emit "  ldr r0, [sp,#~a]" si) ; recover car
+       (emit "  str r0, [~a]" heap-register)
+       (emit "  add r0,~a,#~a" heap-register pair-tag)
+       (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))]
+      [(car)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
+      [(cdr)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))]
+      [(cadr)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
+       (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
+      [(cddr)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
+       (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))]
+      [(caddr)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
+       (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
+       (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
 
   (define (emit-let bindings body si env)
@@ -278,6 +310,7 @@
     (emit-prologue)
 
     (emit-begin-function "scheme_entry")
+    (emit "  mov ~a,r0" heap-register) ; Save heap base
     (emit-expr x (- 0 (wordsize)) (empty-env))
 
     (emit "bx lr")
