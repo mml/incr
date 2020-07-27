@@ -6,6 +6,10 @@
   (define bitwise-or bitwise-ior)
   (define (wordsize) 4)
   (define (empty-env) '())
+  (define (extend-env name index env)
+    (cons (cons name index) env))
+  (define (lookup x env)
+    (cdr (assoc x env)))
 
   ;;; Fixnums end in #b00.
   ;;; All other types end in #b1111
@@ -18,6 +22,13 @@
   (define char-tag #b00001111)
   (define char-shift 8)
   (define null-value #b00111111)
+
+  (define (make-labeler)
+    (let ([x 0])
+      (lambda ()
+        (set! x (+ x 1))
+        (format "l~a" x))))
+  (define unique-label (make-labeler))
 
   (define (emit-prologue)
     (emit "  .arch armv8-a")
@@ -42,7 +53,7 @@
     (emit "  .align 2")
     (emit "  .global ~a" name)
     (emit "  .type ~a, %function" name)
-    (emit "~a:" name))
+    (emit-label name))
 
   (define (emit-end-function name)
     (emit ".size ~a, .-~a" name name)
@@ -62,9 +73,28 @@
           [(null? x) #f]
           [else
             (case (car x)
-              [(add1 sub1 integer->char char->integer zero? not null? + - = *) #t]
+              [(add1 sub1 integer->char char->integer zero? not null? + - = * <) #t]
               [else #f])])
             #f))
+
+  (define (let? x)
+    (and (list? x)
+         (eq? 'let (car x))))
+  (define (variable-ref? x)
+    (symbol? x))
+
+  (define let-bindings cadr)
+  (define let-body caddr)
+  (define lhs car)
+  (define rhs cadr)
+
+  (define (if? x)
+    (and (list? x)
+         (eq? 'if (car x))))
+
+  (define if-test cadr)
+  (define if-conseq caddr)
+  (define if-altern cadddr)
 
   (define primcall-op car)
   (define primcall-operand1 cadr)
@@ -99,6 +129,15 @@
             [(#\r) (string->number (list->string (cdr cs)))]
             [else (error 'compile-program "Don't understand register ~s." s)])])))
 
+  (define emit-b
+    (case-lambda
+      [(addr) (emit-bx 'always addr)]
+      [(condition addr)
+       (let ([instruction (case condition
+                            [(always) "b"]
+                            [(eq) "beq"])])
+         (emit "  ~a ~a" instruction addr))]))
+
   (define emit-move32
     (case-lambda
       [(dest val) (emit-move32 'always dest val)]
@@ -107,6 +146,8 @@
                       [(always) "1110"]
                       [(eq) "0000"]
                       [(ne) "0001"]
+                      [(ge) "1010"]
+                      [(lt) "1011"]
                       [else (error 'compile-program "Unsupported MOV condition ~a" condition)])])
          (define mov  "00110000")
          (define movt "00110100")
@@ -126,6 +167,9 @@
 
   (define (emit-move dest val)
     (emit-move32 dest val))
+
+  (define (emit-label l)
+    (emit "~a:" l))
 
   (define (emit-primitive-call expr si env)
     (case (primcall-op expr)
@@ -177,6 +221,14 @@
        (emit "  cmp r0,r1")
        (emit-move32 'eq "r0" (immediate-rep #t))
        (emit-move32 'ne "r0" (immediate-rep #f))]
+      [(<)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  str r0, [sp,#~a]" si)
+       (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
+       (emit "  ldr r1, [sp,#~a]" si)
+       (emit "  cmp r1,r0")
+       (emit-move32 'lt "r0" (immediate-rep #t))
+       (emit-move32 'ge "r0" (immediate-rep #f))]
       [(*)
        (emit-expr (primcall-operand1 expr) si env)
        (emit "  str r0, [sp,#~a]" si)
@@ -186,11 +238,40 @@
        (emit "  mul r0,r0,r1")]
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
 
+  (define (emit-let bindings body si env)
+    (let f ([b* bindings]
+            [new-env env]
+            [si si])
+      (cond
+        [(null? b*) (emit-expr body si new-env)]
+        [else
+          (let ([b (car b*)])
+            (emit-expr (rhs b) si env)
+            (emit "  str r0, [sp,#~a]" si)
+            (f (cdr b*)
+               (extend-env (lhs b) si new-env)
+               (- si (wordsize))))])))
+
+  (define (emit-if test conseq altern si env)
+    (let ([L0 (unique-label)]
+          [L1 (unique-label)])
+      (emit-expr test si env)
+      (emit "  cmp r0,#~a" (immediate-rep #f))
+      (emit-b 'eq L0)
+      (emit-expr conseq si env)
+      (emit-b 'always L1)
+      (emit-label L0)
+      (emit-expr altern si env)
+      (emit-label L1)))
+
   (define (emit-expr expr si env)
     (cond
       [(immediate? expr)
        (emit-move "r0" (immediate-rep expr))]
       [(primcall? expr) (emit-primitive-call expr si env)]
+      [(let? expr) (emit-let (let-bindings expr) (let-body expr) si env)]
+      [(if? expr) (emit-if (if-test expr) (if-conseq expr) (if-altern expr) si env)]
+      [(variable-ref? expr) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
       [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
 
   (define (emit-program x)
