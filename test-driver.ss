@@ -61,6 +61,14 @@
   (unless (string=? expected (get-string))
     (error 'test "expected ~s got ~s" expected (get-string))))
 
+(define-syntax (skip-test-case stx)
+  (syntax-case stx ()
+    [(_ expr expected)
+     (syntax (/skip-test-case (quote expr)))]))
+
+(define (/skip-test-case expr)
+  (printf "SKIP ~a~n" (pretty-format expr)))
+
 (define (emit . args)
   (apply fprintf (compile-port) args)
   (newline (compile-port)))
