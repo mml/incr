@@ -18,7 +18,8 @@
 
 (define (run-compile expr)
   (let ([p (open-output-file (output-file) #:exists 'replace)])
-    (parameterize ([compile-port p])
+    (parameterize ([compile-port p]
+                   [scramble-link-register? #f])
       (compile-program expr))
     (flush-output p)))
 
@@ -27,7 +28,7 @@
     (error 'as "assemble error")))
 
 (define (build)
-  (unless (system-successful? (format "gcc -DNO_NEWLINE -o x-test-program driver.c ~a" (object-file)))
+  (unless (system-successful? (format "gcc -DNO_NEWLINE -g -o x-test-program driver.c ~a" (object-file)))
     (error 'gcc "build error")))
 
 (define (execute)

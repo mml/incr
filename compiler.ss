@@ -1,6 +1,9 @@
 (load "test-driver.ss")
 (require racket/match)
 
+(define scramble-link-register?
+  (make-parameter #f))
+
 (define (compile-program prog)
   (define (shift n-bits val)
     (arithmetic-shift val n-bits))
@@ -105,6 +108,9 @@
   (define primcall-operand1 cadr)
   (define primcall-operand2 caddr)
 
+  (define (labelcall? x)
+    (eq? 'labelcall (car x)))
+
   (define (immediate-rep x)
     (cond [(integer? x) (shift fixnum-shift x)]
           [(boolean? x)
@@ -129,6 +135,7 @@
       (cond
         [(null? cs) (error 'compile-program
                            "Internal error: empty string is not a valid register")]
+        [(eq? "lr" s) #b1110]
         [else
           (case (car cs)
             [(#\r) (string->number (list->string (cdr cs)))]
@@ -297,6 +304,37 @@
       (emit-expr altern si env)
       (emit-label L1)))
 
+  (define (emit-code lexpr si env) (match lexpr
+    [(list 'code (list formals ___) expr)
+     (let f ([formals formals] [si si] [env env])
+       (cond [(null? formals) (emit "  str lr, [sp,#~a]" (+ si (wordsize)))
+                              (emit-expr expr si env)
+                              (emit "  ldr lr, [sp,#~a]" (+ si (wordsize)))
+                              (emit "  bx lr")]
+             [else (f (cdr formals) (- si (wordsize)) (extend-env (car formals) si env))]))]))
+
+  (define (emit-ldef ldef env) (match ldef
+    [(list [list lvars lexprs] ___)
+     (let ([env (append (map (lambda (lvar) (cons lvar (unique-label))) lvars) env)])
+       (let f ([lvars lvars] [lexprs lexprs])
+         (cond [(null? lvars) env]
+               [else
+                 (emit-label (lookup (car lvars) env))
+                 (emit-code (car lexprs) (- 0 (wordsize)) env)
+                 (f (cdr lvars) (cdr lexprs))])))]))
+
+  (define (emit-labelcall expr si env) (match expr
+    [(list 'labelcall lvar args ___)
+     (let f ([args args] [new-si (- si (wordsize))])
+       (cond [(null? args) (emit "  sub sp, #~a" (- si))   ; Decrement SP
+                           (emit "  bl ~a" (lookup lvar env))
+                           (emit "  add sp, #~a" (- si))]  ; Restore SP
+             [else (emit-expr (car args) new-si env)
+                   (emit "  str r0, [sp,#~a]" new-si)
+                   (f (cdr args) (- new-si (wordsize)))]
+             ))]
+    ))
+
   (define (emit-expr expr si env)
     (cond
       [(immediate? expr)
@@ -305,17 +343,22 @@
       [(let? expr) (emit-let (let-bindings expr) (let-body expr) si env)]
       [(if? expr) (emit-if (if-test expr) (if-conseq expr) (if-altern expr) si env)]
       [(variable-ref? expr) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
+      [(labelcall? expr) (emit-labelcall expr si env)]
       [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
 
   (define (emit-program ldef x)
     (emit-prologue)
 
-    (emit-begin-function "scheme_entry")
-    (emit "  mov ~a,r0" heap-register) ; Save heap base
-    (emit-expr x (- 0 (wordsize)) (empty-env))
-
-    (emit "bx lr")
-    (emit-end-function "scheme_entry")
+    (let ([initial-env (emit-ldef ldef (empty-env))])
+      (emit-begin-function "scheme_entry")
+      (emit "  push {lr}") ; Save LR
+      (when (scramble-link-register?)
+        (emit-move32 "lr" #xdeadbeef))
+      (emit "  mov ~a,r0" heap-register) ; Save heap base
+      (emit-expr x (- 0 (wordsize)) initial-env)
+      (emit "  pop {lr}") ; Restore LR
+      (emit "bx lr")
+      (emit-end-function "scheme_entry"))
 
     (emit ".ident \"mml scheme compiler\"")
     (emit ".section .note.GNU-stack,\"\",%progbits"))

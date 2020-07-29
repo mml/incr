@@ -200,3 +200,39 @@
               (caddr (cddr l))) "5")
 (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
               (null? (cdr (cddr (cddr l))))) "#t")
+
+; procedures
+(test-case
+  (labels ([ten (code () 10)])
+          (labelcall ten))
+  "10")
+
+(test-case
+  (labels ([eleven (code () (add1 10))])
+          (labelcall eleven))
+  "11")
+
+(test-case (labels ([double (code (x) (* x 2))])
+                    (labelcall double 10)) "20")
+(test-case (labels ([double (code (x) (* x 2))])
+                    (labelcall double (labelcall double 10))) "40")
+(test-case (labels ([double (code (x) (* x 2))]
+                     [triple (code (x) (* x 3))])
+                    (= (labelcall double (labelcall triple #xff0000))
+                       (labelcall triple (labelcall double #xff0000)))) "#t")
+
+(test-case (labels ([add (code (x y) (+ x y))]
+                    [mul (code (x y) (* x y))])
+                   (labelcall mul
+                              (labelcall add 10 15)
+                              (labelcall add 20 25)))
+           "1125")
+
+(test-case
+  (labels
+    ([len (code (l) (if (null? l)
+                        0
+                        (+ 1 (cdr l))))])
+    (labelcall len (cons 1 (cons 2 (cons 3 (cons 4 (cons 5 ())))))))
+  "5")
+
