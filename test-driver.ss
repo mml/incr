@@ -1,13 +1,7 @@
+(require "compiler.ss")
+
 ; Racketisms
 (define system-successful? system)
-
-(define compile-port
-  (make-parameter
-   (current-output-port)
-   (lambda (p)
-     (unless (output-port? p)
-       (error 'compile-port (format "Not an output port ~s." p)))
-     p)))
 
 (define output-file
   (make-parameter
@@ -69,8 +63,3 @@
 
 (define (/skip-test-case expr)
   (printf "SKIP ~a~n" (pretty-format expr)))
-
-(define (emit . args)
-  (apply fprintf (compile-port) args)
-  (newline (compile-port)))
-
