@@ -351,13 +351,13 @@
 
     (let ([initial-env (emit-ldef ldef (empty-env))])
       (emit-begin-function "scheme_entry")
-      (emit "  push {lr}") ; Save LR
+      (emit "  str lr,[sp],#-~a" (wordsize)) ; Save LR
       (when (scramble-link-register?)
         (emit-move32 "lr" #xdeadbeef))
       (emit "  mov ~a,r0" heap-register) ; Save heap base
-      (emit-expr x (- 0 (wordsize)) initial-env)
-      (emit "  pop {lr}") ; Restore LR
-      (emit "bx lr")
+      (emit-expr x 0 initial-env)
+      (emit "  ldr lr,[sp,#~a]!" (wordsize)) ; Restore LR
+      (emit "  bx lr")
       (emit-end-function "scheme_entry"))
 
     (emit ".ident \"mml scheme compiler\"")
