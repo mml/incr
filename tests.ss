@@ -1,6 +1,6 @@
 (require "test-driver.ss")
 
-(test-cases skip "Integer immediates"
+(test-cases "Integer immediates"
   ; ARM cases
   ; Easy #1: 8 bit values
   (test-case 0 "0")
@@ -28,7 +28,7 @@
   (test-case 65535 "65535")
   (test-case -1 "-1"))
 
-(test-cases skip "Non-integer immediates"
+(test-cases "Non-integer immediates"
   ; booleans
   (test-case #t "#t")
   (test-case #f "#f")
@@ -39,7 +39,7 @@
   ; null
   (test-case () "()"))
 
-(test-cases skip "Unary primitives"
+(test-cases "Unary primitives"
   ;;; unary primitives
   ; add1
   (test-case (add1 0) "1")
@@ -78,7 +78,7 @@
   (test-case (char->integer #\A) "65")
   (test-case (integer->char (add1 (char->integer #\l))) "#\\m"))
 
-(test-cases skip "Binary primitives"
+(test-cases "Binary primitives"
   ; +
   (test-case (+ 2 2) "4")
   (test-case (+ 0 0) "0")
@@ -136,7 +136,7 @@
                     (* 20 (+ 30 40))))
              "#t"))
 
-(test-cases skip "let"
+(test-cases "let"
   (test-case (let ([b 10]) b) "10")
   (test-case (let ([b 10])
                 (let ([b (+ b b)])
@@ -150,7 +150,7 @@
                   (- a b)))
              "10"))
 
-(test-cases skip "if"
+(test-cases "if"
   (test-case (if #t 20 30) "20")
   (test-case (if (< 0 1) 1 0) "1")
   (test-case (if (< 66 (char->integer #\A)) 9 5) "5")
@@ -181,7 +181,7 @@
                   (not (not (not (not b))))))
              "#t"))
 
-(test-cases skip "cons"
+(test-cases "cons"
   (test-case (car (cons 10 20)) "10")
   (test-case (cdr (cons 10 20)) "20")
   (test-case (car (cons 10 (cons 15 20))) "10")
@@ -236,4 +236,12 @@
     "1")
   (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
       (labelcall len (cons 1 (cons 2 (cons 3 (cons 4 (cons 5 ())))))))
-    "5"))
+    "5")
+  (test-case (labels ([fib (code (n) (if (zero? n) 1
+                                         (if (= 1 n) 1
+                                             (+ (labelcall fib (- n 1))
+                                                (labelcall fib (- n 2))))))])
+                     (labelcall fib 33))
+             "5702887")
+  
+  )
