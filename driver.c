@@ -52,13 +52,7 @@ static void deallocate_protected_space(char* p, int size){
   }
 }
 
-int main(int argc, char **argv) {
-  int heap_size = (16 * 4096); /* 16K values */
-  char *heap_base = allocate_protected_space(heap_size);
-  char *heap_top = heap_base + heap_size;
-
-	int val = scheme_entry(heap_base);
-
+void print_ptr(int val) {
   if (val == NULL_VALUE) {
     printf("()");
 	} else if (val == FALSE_VALUE) {
@@ -73,6 +67,15 @@ int main(int argc, char **argv) {
 	} else {
 		errx(1, "Unknown value 0x%04x\n", val);
 	}
+}
+
+int main(int argc, char **argv) {
+  int heap_size = (16 * 4096); /* 16K values */
+  char *heap_base = allocate_protected_space(heap_size);
+  char *heap_top = heap_base + heap_size;
+
+	int val = scheme_entry(heap_base);
+  print_ptr(val);
 
 #ifndef NO_NEWLINE
 	printf("\n");
