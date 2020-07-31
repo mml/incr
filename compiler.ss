@@ -98,7 +98,7 @@
         [else
           (case (car x)
             [(add1 sub1 integer->char char->integer zero? not null? + - = * <
-              cons car cdr cadr cddr caddr) #t]
+              cons car cdr cadr cddr caddr make-vector) #t]
             [else #f])])
           #f))
 
@@ -200,8 +200,23 @@
 (define (emit-label l)
   (emit "~a:" l))
 
+(define (emit-allocation-primcall op expr si env)
+  (case op
+    [(cons)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  str r0, [sp,#~a]" si) ; save car on the stack
+     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
+     (emit "  str r0, [~a,#~a]" heap-register (wordsize)) ; store cdr
+     (emit "  ldr r0, [sp,#~a]" si) ; recover car
+     (emit "  str r0, [~a]" heap-register)
+     (emit "  add r0,~a,#~a" heap-register pair-tag)
+     (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))]))
+
 (define (emit-primitive-call expr si env)
-  (case (primcall-op expr)
+  (let ([op (primcall-op expr)])
+  (case op
+    [(cons make-vector)
+     (emit-allocation-primcall op expr si env)]
     [(add1)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "add r0,r0,#~a" (immediate-rep 1))]
@@ -265,15 +280,6 @@
      (emit "  ldr r1, [sp,#~a]" si)
      (emit "  asr r0,r0,#~a" fixnum-shift) ; Can we combine with ldr?
      (emit "  mul r0,r0,r1")]
-    [(cons)
-     (emit-expr (primcall-operand1 expr) si env)
-     (emit "  str r0, [sp,#~a]" si) ; save car on the stack
-     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
-     (emit "  str r0, [~a,#~a]" heap-register (wordsize)) ; store cdr
-     (emit "  ldr r0, [sp,#~a]" si) ; recover car
-     (emit "  str r0, [~a]" heap-register)
-     (emit "  add r0,~a,#~a" heap-register pair-tag)
-     (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))]
     [(car)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
@@ -293,7 +299,7 @@
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
      (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
-    [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))]))
+    [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
 (define (emit-let bindings body si env)
   (let f ([b* bindings]
