@@ -46,11 +46,12 @@
 (define null-value #b00111111)
 (define pair-tag #b001)
 
+; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
   (let ([x 0])
     (lambda ()
       (set! x (+ x 1))
-      (format "l~a" x))))
+      (format "L~a" x))))
 (define unique-label (make-labeler))
 
 (define (emit-prologue)
@@ -325,9 +326,12 @@
    (let f ([formals formals] [si 0] [env env])
      (cond [(null? formals) (emit "  str lr,[sp,#~a]" si) ; Save LR
                             (emit-expr expr (- si (wordsize)) env)
-                            (emit "  ldr lr, [sp,#~a]" si) ; Restore LR
+                            (emit "  ldr lr,[sp,#~a]" si) ; Restore LR
                             (emit "  bx lr")]
-           [else (f (cdr formals) (- si (wordsize)) (extend-env (car formals) si env))]))]))
+           [else (f (cdr formals)
+                    (- si (wordsize))
+                    (extend-env (car formals) si env))])
+     )]))
 
 (define (emit-ldef ldef env) (match ldef
   [(list [list lvars lexprs] ___)
@@ -335,6 +339,7 @@
      (let f ([lvars lvars] [lexprs lexprs])
        (cond [(null? lvars) env]
              [else
+               (emit "/* label ~a */" (car lvars))
                (emit-label (lookup (car lvars) env))
                (emit-code (car lexprs) env)
                (f (cdr lvars) (cdr lexprs))])))]))
@@ -349,14 +354,14 @@
 ;       old SP
 (define (emit-labelcall expr si env) (match expr
   [(list 'labelcall lvar args ___)
-   (emit "  str sp, [sp,#~a]" si)
-   (emit "  sub sp,sp,#~a" (- (- si (wordsize))))
-   (let f ([args args] [si 0])
-     (cond [(null? args) (emit "  bl ~a" (lookup lvar env))]
-           [else (emit-expr (car args) si env)
-                 (emit "  str r0, [sp,#~a]" si)
-                 (f (cdr args) (- si (wordsize)))]))
-   (emit "  ldr sp, [sp,#~a]" (- si (wordsize)))]))
+   (let f ([args args] [new-si si])
+     (cond [(null? args)
+            (emit "  sub sp,sp,#~a" (- si))
+            (emit "  bl ~a" (lookup lvar env))
+            (emit "  add sp,sp,#~a" (- si))]
+           [else (emit-expr (car args) new-si env)
+                 (emit "  str r0, [sp,#~a]" new-si)
+                 (f (cdr args) (- new-si (wordsize)))]))]))
 
 (define (emit-expr expr si env)
   (cond
@@ -374,12 +379,12 @@
 
   (let ([initial-env (emit-ldef ldef (empty-env))])
     (emit-begin-function "scheme_entry")
-    (emit "  str lr,[sp],#-~a" (wordsize)) ; Save LR
+    (emit "  stmfd sp!, {lr}") ; Save LR
     (when (scramble-link-register?)
       (emit-move32 "lr" #xdeadbeef))
     (emit "  mov ~a,r0" heap-register) ; Save heap base
-    (emit-expr x 0 initial-env)
-    (emit "  ldr lr,[sp,#~a]!" (wordsize)) ; Restore LR
+    (emit-expr x (- 0 (wordsize)) initial-env)
+    (emit "  ldmfd sp!, {lr}") ;; Restore LR
     (emit "  bx lr")
     (emit-end-function "scheme_entry"))
 

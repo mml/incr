@@ -228,10 +228,12 @@
                                 (labelcall add 20 25)))
              "1125")
 
-  (test-case
-    (labels
-      ([len (code (l) (if (null? l)
-                          0
-                          (+ 1 (cdr l))))])
+  (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
+      (labelcall len ()))
+    "0")
+  (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
+      (labelcall len (cons 1 ())))
+    "1")
+  (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
       (labelcall len (cons 1 (cons 2 (cons 3 (cons 4 (cons 5 ())))))))
     "5"))

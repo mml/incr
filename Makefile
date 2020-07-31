@@ -7,7 +7,7 @@ test:
 	racket --script tests.ss
 
 debug: $(TARGET)
-	gdb $<
+	gdb -q $<
 
 dump: $(OBJECT)
 	objdump -d $<
