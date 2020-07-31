@@ -1,4 +1,10 @@
+#lang racket
+
 (require "compiler.ss")
+
+(provide test-cases)
+(provide test-case)
+(provide skip-test-case)
 
 ; Racketisms
 (define system-successful? system)
@@ -42,10 +48,29 @@
 		[else (display c)
 		      (f)]))))))))
 
+(define-syntax test-cases
+  (lambda (stx)
+    (syntax-case stx (skip test-case)
+      [(_ desc (test-case expr expected) ...)
+       #'(/test-cases desc (list (quote expr) ...) (list expected ...) #f)]
+      [(_ skip desc (test-case expr expected) ...)
+       #'(/test-cases desc (list (quote expr) ...) (list expected ...) #t)])))
+
 (define-syntax (test-case stx)
   (syntax-case stx ()
     [(_ expr expected)
      (syntax (/test-case (quote expr) expected))]))
+
+(define (/test-cases desc exprs expecteds skip?)
+  (cond
+    [skip? (printf "Skipping cases ~s~n" desc)]
+    [else
+      (printf "Cases '~a'~n" desc)
+      (let f ([exprs exprs] [expecteds expecteds])
+        (cond
+          [(null? exprs) (void)]
+          [(/test-case (car exprs) (car expecteds))
+           (f (cdr exprs) (cdr expecteds))]))]))
 
 (define (/test-case expr expected)
   (printf "Test: ~a~n" (pretty-format expr))
