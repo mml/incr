@@ -3,7 +3,7 @@ MACH=arm32le
 .DEFAULT: debug
 
 SRCS = $(wildcard *.c)
-RUN_SRCS = sizes.c
+RUN_SRCS = sizes.c align.c
 
 OBJ_TARGETS = $(patsubst %.c,$(MACH)/%.s,$(SRCS)) $(patsubst %.c,$(MACH)/%.dump,$(SRCS))
 RUN_TARGETS = $(patsubst %.c,$(MACH)/%,$(RUN_SRCS))
