@@ -25,6 +25,7 @@
   (arithmetic-shift val n-bits))
 (define bitwise-or bitwise-ior)
 (define (wordsize) 4)
+(define (wordsize-shift) 2)
 (define (cellsize) (* 2 wordsize))
 (define (empty-env) '())
 (define (extend-env name index env)
@@ -229,6 +230,7 @@
      (emit "  add r0,~a,#~a" heap-register pair-tag)
      (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))]
     [(make-vector) ; using only r0 and r1... could be more efficient
+     (emit "  @ make-vector{{{")
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  lsr r0, #~a" fixnum-shift) ; turn fixnum into int
      (emit "  str r0, [sp,#~a]" si) ; save size on stack
@@ -241,7 +243,7 @@
      (emit "  ldr r2, [sp,#~a]" (- si (wordsize))) ; r2 = pointer
      (emit "  ldr r1, [sp,#~a]" si) ; r1 = size
      (emit "  str r1, [r2],#~a" (wordsize)) ; write size
-     (let ([loop (unique-label)] [break (unique-label)])
+     (let ([loop (unique-label "loop")] [break (unique-label "break")])
        (emit-label loop)
        (emit "  subs r1,r1,#1") ; decrement r1
        (emit-b 'mi break) ; if r1 < 0 goto break
@@ -249,7 +251,8 @@
        (emit-b 'always loop) ;
        (emit-label break))
      (emit "  ldr r0, [sp,#~a]" (- si (wordsize)))  ; return the pointer
-     (emit "  orr r0,r0,#~a" vector-tag)]            ; with appropriate tag
+     (emit "  orr r0,r0,#~a" vector-tag)             ; with appropriate tag
+     (emit "  @ make-vector}}}")]
     ))
 
 (define (emit-primitive-call expr si env)
@@ -340,12 +343,18 @@
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
      (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
     [(vector-ref)
-     (emit-expr (primcall-operand1 expr) si env)
-     (emit "  str r0, [sp,#~a]" si)
-     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
-     (emit "  add r0,r0,#~a" (wordsize)) ; skip over vector size
-     (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  ldr r0, [r1,r0,LSR #~a]" fixnum-shift)]
+     (emit "  @ vector-ref{{{")
+     (emit "  str r4, [sp,#~a]" si) ; save r4
+     (emit-expr (primcall-operand1 expr) (- si (wordsize)) env)
+     (emit "  sub r0, #~a" vector-tag)
+     (emit "  mov r4,r0") ; address in r4
+     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env) ; offset in r0
+     (emit "  LSR r1,r0,#~a" fixnum-shift) ; fixnum->int (and move to r1)
+     (emit "  add r1,r1,#1") ; skip over vector size
+     (emit "  LSL r1,r1,#~a" (wordsize-shift)) ; multiply by wordsize
+     (emit "  ldr r0, [r4,r1]") ; put return value in r0
+     (emit "  ldr r4, [sp,#~a]" si) ; restore r4
+     (emit "  @ vector-ref}}}")]
     [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
 (define (emit-let bindings body si env)

@@ -6,8 +6,8 @@
   (test-case (make-vector 1 10) "#(10)")
   (test-case (make-vector 2 10) "#(10 10)")
   (test-case (vector-ref (make-vector 1 0) 0) "0")
-  #;(test-case (vector-ref (make-vector 1 10) 0) "10")
-  #;(test-case (vector-set! (make-vector 2 8) 1 16)
+  (test-case (vector-ref (make-vector 1 10) 0) "10")
+  (test-case (vector-set! (make-vector 2 8) 1 16)
              "#(8 16)")
   )
 
