@@ -167,6 +167,8 @@
                         default
                         (primcall-operand2 expr))]))
 
+(define primcall-operand3 cadddr)
+
 (define (labelcall? x)
   (eq? 'labelcall (car x)))
 
@@ -279,11 +281,29 @@
      (emit "  @ make-vector}}}")]
     ))
 
+(define (emit-side-effect-primcall op expr si env)
+  (case op
+    [(vector-set!) ; vec n obj
+     (with-saved-registers [si ("r4" "r5")]
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  sub r0, #~a" vector-tag)
+       (emit "  mov r4,r0") ; address in r4
+       (emit-expr (primcall-operand2 expr) si env)
+       (emit "  LSR r5,r0,#~a" fixnum-shift) ; fixnum->int (and move to r5)
+       (emit "  add r5,r5,#1") ; skip over vector size
+       (emit "  LSL r5,r5,#~a" (wordsize-shift)) ; multiply by wordsize
+       (emit-expr (primcall-operand3 expr) si env) ; value in r0
+       (emit "  str r0, [r4,r5]"))]
+    [else (error 'compile-program
+                 "Unsupported primcall ~s in ~s" (pretty-format op) (pretty-format expr))]))
+
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
   (case op
     [(cons make-vector)
      (emit-allocation-primcall op expr si env)]
+    [(vector-set!)
+     (emit-side-effect-primcall op expr si env)]
     [(add1)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "add r0,r0,#~a" (immediate-rep 1))]
