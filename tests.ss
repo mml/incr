@@ -1,15 +1,8 @@
 (require "test-driver.ss")
 
-(test-cases "Vectors"
-  (test-case (make-vector 1 0) "#(0)")
-  (test-case (make-vector 2 0) "#(0 0)")
-  (test-case (make-vector 1 10) "#(10)")
-  (test-case (make-vector 2 10) "#(10 10)")
-  (test-case (vector-ref (make-vector 1 0) 0) "0")
-  (test-case (vector-ref (make-vector 1 10) 0) "10")
-  (test-case (vector-set! (make-vector 2 8) 1 16)
-             "#(8 16)")
-  )
+(test-cases "begin"
+  (test-case (begin 0) "0")
+  (test-case (begin 0 10) "10"))
 
 (test-cases "Integer immediates"
   ; ARM cases
@@ -159,7 +152,9 @@
                 (let ([b a]
                       [a b])
                   (- a b)))
-             "10"))
+             "10")
+
+  (test-case (let () 10 20) "20"))
 
 (test-cases "if"
   (test-case (if #t 20 30) "20")

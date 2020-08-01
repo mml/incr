@@ -129,11 +129,18 @@
 (define (let? x)
   (and (list? x)
        (eq? 'let (car x))))
+(define (begin? x)
+  (and (list? x)
+       (not (null? x))
+       (eq? 'begin (car x))))
+
 (define (variable-ref? x)
   (symbol? x))
 
 (define let-bindings cadr)
-(define let-body caddr)
+(define (let-body expr)
+  `(begin ,@(cddr expr)))
+(define begin-exprs cdr)
 (define lhs car)
 (define rhs cadr)
 
@@ -373,6 +380,12 @@
      (emit "  @ vector-ref}}}")]
     [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
+(define (emit-begin exprs si env)
+  (cond
+    [(null? exprs) (void)]
+    [else (emit-expr (car exprs) si env)
+          (emit-begin (cdr exprs) si env)]))
+
 (define (emit-let bindings body si env)
   (let f ([b* bindings]
           [new-env env]
@@ -446,6 +459,7 @@
     [(immediate? expr)
      (emit-move "r0" (immediate-rep expr))]
     [(primcall? expr) (emit-primitive-call expr si env)]
+    [(begin? expr) (emit-begin (begin-exprs expr) si env)]
     [(let? expr) (emit-let (let-bindings expr) (let-body expr) si env)]
     [(if? expr) (emit-if (if-test expr) (if-conseq expr) (if-altern expr) si env)]
     [(variable-ref? expr) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
