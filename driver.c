@@ -18,7 +18,11 @@
 
 #define NULL_VALUE 0b00111111
 
+#define VECTOR_TAG 0b010
+#define ADDRESS_MASK 0xfffffff8
+
 extern int scheme_entry();
+void print_ptr(int);
 
 static char* allocate_protected_space(int size){
   int page = getpagesize();
@@ -52,6 +56,18 @@ static void deallocate_protected_space(char* p, int size){
   }
 }
 
+void print_vector(int *addr) {
+  int size = addr[0];
+  printf("#(");
+  for (int i = 0; i < size; i++) {
+    if (i != 0 && i != size) {
+      printf(" ");
+    }
+    print_ptr((int)addr[i+1]);
+  }
+  printf(")");
+}
+
 void print_ptr(int val) {
   if (val == NULL_VALUE) {
     printf("()");
@@ -64,6 +80,8 @@ void print_ptr(int val) {
   } else if ((val & CHAR_MASK) == CHAR_TAG) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);
+  } else if (val & VECTOR_TAG) {
+    print_vector((int *)(val & ADDRESS_MASK));
 	} else {
 		errx(1, "Unknown value 0x%04x\n", val);
 	}

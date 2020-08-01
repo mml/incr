@@ -45,6 +45,7 @@
 (define char-shift 8)
 (define null-value #b00111111)
 (define pair-tag #b001)
+(define vector-tag #b010)
 
 ; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
@@ -103,7 +104,7 @@
         [else
           (case (car x)
             [(add1 sub1 integer->char char->integer zero? not null? + - = * <
-              cons car cdr cadr cddr caddr make-vector) #t]
+              cons car cdr cadr cddr caddr make-vector vector-ref vector-set!) #t]
             [else #f])])
           #f))
 
@@ -127,8 +128,19 @@
 (define if-altern cadddr)
 
 (define primcall-op car)
-(define primcall-operand1 cadr)
-(define primcall-operand2 caddr)
+(define primcall-operand1
+  (case-lambda
+    [(expr) (cadr expr)]
+    [(expr default) (if (null? (cdr expr))
+                        default
+                        (primcall-operand1 expr))]))
+
+(define primcall-operand2
+  (case-lambda
+    [(expr) (caddr expr)]
+    [(expr default) (if (null? (cddr expr))
+                        default
+                        (primcall-operand2 expr))]))
 
 (define (labelcall? x)
   (eq? 'labelcall (car x)))
@@ -169,7 +181,7 @@
     [(condition addr)
      (let ([instruction (case condition
                           [(always) "b"]
-                          [(eq) "beq"])])
+                          [(eq mi) (string-append "b" (symbol->string condition))])])
        (emit "  ~a ~a" instruction addr))]))
 
 (define emit-move32
@@ -215,7 +227,30 @@
      (emit "  ldr r0, [sp,#~a]" si) ; recover car
      (emit "  str r0, [~a]" heap-register)
      (emit "  add r0,~a,#~a" heap-register pair-tag)
-     (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))]))
+     (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))]
+    [(make-vector) ; using only r0 and r1... could be more efficient
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  lsr r0, #~a" fixnum-shift) ; turn fixnum into int
+     (emit "  str r0, [sp,#~a]" si) ; save size on stack
+     (emit "  add r0, r0, #11") ; align size to next
+     (emit "  and r0, r0, #-8") ;    object boundary
+     (emit "  str ~a, [sp,#~a]" heap-register (- si (wordsize))) ; save address on stack
+     (emit "  add ~a,~a,r0" heap-register heap-register)
+     (emit-expr (primcall-operand2 expr (shift (- fixnum-shift)  #xdead0))
+                (- si (wordsize) (wordsize)) env) ; r0 = initial value
+     (emit "  ldr r2, [sp,#~a]" (- si (wordsize))) ; r2 = pointer
+     (emit "  ldr r1, [sp,#~a]" si) ; r1 = size
+     (emit "  str r1, [r2],#~a" (wordsize)) ; write size
+     (let ([loop (unique-label)] [break (unique-label)])
+       (emit-label loop)
+       (emit "  subs r1,r1,#1") ; decrement r1
+       (emit-b 'mi break) ; if r1 < 0 goto break
+       (emit "  str r0, [r2],#~a" (wordsize)) ; initialize word
+       (emit-b 'always loop) ;
+       (emit-label break))
+     (emit "  ldr r0, [sp,#~a]" (- si (wordsize)))  ; return the pointer
+     (emit "  orr r0,r0,#~a" vector-tag)]            ; with appropriate tag
+    ))
 
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
@@ -304,6 +339,13 @@
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
      (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
+    [(vector-ref)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  str r0, [sp,#~a]" si)
+     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
+     (emit "  add r0,r0,#~a" (wordsize)) ; skip over vector size
+     (emit "  ldr r1, [sp,#~a]" si)
+     (emit "  ldr r0, [r1,r0,LSR #~a]" fixnum-shift)]
     [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
 (define (emit-let bindings body si env)
