@@ -13,6 +13,23 @@
        (error 'compile-port (format "Not an output port ~s." p)))
      p)))
 
+(define-syntax (with-saved-registers stx)
+  (syntax-case stx ()
+    [(_ [si ()] expr ...)
+     #'(let ([si si]) expr ...)]
+    [(_ [si (reg)] expr ...)
+     #'(begin
+         (emit "  str ~a,[sp,#~a]" reg si)
+         (let ([si (- si (wordsize))])
+           (with-saved-registers [si ()] expr ...))
+         (emit "  ldr ~a,[sp,#~a]" reg si))]
+    [(_ [si (r1 r2 ...)] expr ...)
+     #'(begin
+         (emit "  str ~a,[sp,#~a]" r1 si)
+         (let ([si (- si (wordsize))])
+           (with-saved-registers [si (r2 ...)] expr ...))
+         (emit "  ldr ~a,[sp,#~a]" r1 si))]))
+
 (define (emit . args)
   (apply fprintf (compile-port) args)
   (newline (compile-port)))
@@ -344,16 +361,15 @@
      (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
     [(vector-ref)
      (emit "  @ vector-ref{{{")
-     (emit "  str r4, [sp,#~a]" si) ; save r4
-     (emit-expr (primcall-operand1 expr) (- si (wordsize)) env)
-     (emit "  sub r0, #~a" vector-tag)
-     (emit "  mov r4,r0") ; address in r4
-     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env) ; offset in r0
-     (emit "  LSR r1,r0,#~a" fixnum-shift) ; fixnum->int (and move to r1)
-     (emit "  add r1,r1,#1") ; skip over vector size
-     (emit "  LSL r1,r1,#~a" (wordsize-shift)) ; multiply by wordsize
-     (emit "  ldr r0, [r4,r1]") ; put return value in r0
-     (emit "  ldr r4, [sp,#~a]" si) ; restore r4
+     (with-saved-registers [si ("r4")]
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  sub r0, #~a" vector-tag)
+       (emit "  mov r4,r0") ; address in r4
+       (emit-expr (primcall-operand2 expr) si env) ; offset in r0
+       (emit "  LSR r1,r0,#~a" fixnum-shift) ; fixnum->int (and move to r1)
+       (emit "  add r1,r1,#1") ; skip over vector size
+       (emit "  LSL r1,r1,#~a" (wordsize-shift)) ; multiply by wordsize
+       (emit "  ldr r0, [r4,r1]")) ; put return value in r0
      (emit "  @ vector-ref}}}")]
     [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
