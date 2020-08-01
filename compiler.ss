@@ -49,10 +49,15 @@
 ; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
   (let ([x 0])
-    (lambda ()
+    (lambda (prefix)
       (set! x (+ x 1))
-      (format "L~a" x))))
-(define unique-label (make-labeler))
+      (format "~a~a" prefix x))))
+
+(define /unique-label (make-labeler))
+(define unique-label
+  (case-lambda
+    [() (/unique-label "L")]
+    [(prefix) (/unique-label prefix)]))
 
 (define (emit-prologue)
   (emit "  .arch armv8-a")
