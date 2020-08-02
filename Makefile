@@ -1,16 +1,25 @@
-TARGET = x-test-program
-OBJECT = x-test-program.o
+WORKDIR = /dev/shm/incr
+TARGET = $(WORKDIR)/x-test-program
+OBJECT = $(WORKDIR)/x-test-program.o
+ASSEMBLY = $(WORKDIR)/x-test-program.s
+COMPILE_SCHEME = compiler.ss test-driver.ss annotate-free-variables.ss
 
-.PHONY: test debug dump annotest
+.PHONY: test debug dump annotest raco cat
 
 test:
-	racket --script tests.ss
+	racket -f tests.ss
 
 annotest:
-	racket --script test-anno.ss
+	racket -f test-anno.ss
+
+raco:
+	raco make -v $(COMPILE_SCHEME)
 
 debug: $(TARGET)
 	gdb -q $<
 
 dump: $(OBJECT)
 	objdump -d $<
+
+cat: $(ASSEMBLY)
+	less -j.5 -J $<
