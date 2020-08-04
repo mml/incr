@@ -52,7 +52,7 @@
 (define heap-register "r8")
 
 ;;; Fixnums end in #b00.
-;;; All other types end in #b1111
+;;; All other integral types end in #b1111
 (define fixnum-shift 2)
 (define boolean-mask #b10111111)
 (define boolean-tag #b00101111)
