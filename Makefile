@@ -6,10 +6,10 @@ COMPILE_SCHEME = compiler.ss test-driver.ss annotate-free-variables.ss
 
 .PHONY: test debug dump annotest raco cat
 
-test:
+test: raco
 	racket -f tests.ss
 
-annotest:
+annotest: raco
 	racket -f test-anno.ss
 
 raco:

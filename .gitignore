@@ -1,3 +1,4 @@
 x-test-program*
 *.o
 .*.swp
+compiled
