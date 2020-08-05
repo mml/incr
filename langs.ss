@@ -41,7 +41,8 @@
     (lambda (var)
       (let ([suffix next])
         (set! next (add1 next))
-        (string-append var "." (number->string suffix))))))
+        (string->symbol
+          (string-append (symbol->string var) "." (number->string suffix)))))))
 
 (define-language Lsrc
   (terminals
@@ -58,29 +59,65 @@
     (lambda (x* ...) body* ... body)))
 (define-parser parse-Lsrc Lsrc)
 
-(define-pass parse-and-rename : * (e) -> Lsrc ()
+(trace-define-pass parse-and-rename : * (e) -> Lsrc ()
   (definitions
     (define (Expr* e* env)
-      (map (lambda (e) (Expr e env)) e*)))
+      (map (lambda (e) (Expr e env)) e*))
+    (define (build-primitive as)
+      (let ([pr (car as)] [n (cdr as)])
+        (cons pr (lambda (env . e1...)
+                   (if (= n (length e1...))
+                       `(,pr ,(Expr* e1... env) ...)
+                       (error pr "arity-mismatch: expected ~a got ~a"
+                              n (length e1...)))))))
+    (define (process-bindings env bindings)
+      (let loop ([new-env env] [bindings bindings] [rx* '()] [re* '()])
+        (if (null? bindings)
+            (values (reverse rx*) (reverse re*) new-env)
+            (let* ([x (caar bindings)]
+                   [e (cadar bindings)]
+                   [ux (unique-var x)])
+              (loop (cons (cons x ux) new-env) (cdr bindings)
+                    (cons ux rx*) (cons (Expr e env) re*))))))
+    (define (process-body env body*)
+      (let loop ([body (car body*)] [body* (cdr body*)] [rbody* '()])
+        (if (null? body*)
+            (values (reverse rbody*) (Expr body env))
+            (loop (car body*) (cdr body*) (cons (Expr body env) rbody*)))))
+    (define initial-env
+      (cons (cons 'let (trace-lambda (env bindings . body*)
+                         (let-values ([(x* e* env) (process-bindings env bindings)])
+                           (let-values ([(body* body) (process-body env body*)])
+                             `(let ([,x* ,e*] ...) ,body* ... ,body)))))
+            (map build-primitive primitives))))
   (Expr : * (e env) -> Expr ()
     (cond
-      [(immediate-constant? e) `,e]
       [(pair? e)
        (let ([e0 (car e)] [e1... (cdr e)])
          (cond
-           [(assq e0 env)
-            => (lambda (as)
-                 (let ([v (cdr as)])
-                   (if (number? v)
-                       (if (= v (length e1...))
-                           `(,e0 ,(Expr* e1...) ...)
-                           (error
-                             e0
-                             "~a: ~a takes ~a parameters but got ~a"
-                             e e0 v (length (cdr e))))
-                       (error who "internal error: ~a unimplemented" e0))))]))]
+           [(assq e0 env) =>
+            (lambda (as)
+              (let ([v (cdr as)])
+                (cond
+                  [(number? v)
+                   (if (= v (length e1...))
+                       `(,e0 ,(Expr* e1... env) ...)
+                       (error
+                         e0
+                         "~a: ~a takes ~a parameters but got ~a"
+                         e e0 v (length (cdr e))))]
+                  [(procedure? v)
+                   (apply v env e1...)]
+                  [(symbol? v) `,v]
+                  [else (error who "unexpected value ~a" v)])))]
+           [else (error who "internal error: ~a unimplemented" e0)]))]
+      [(symbol? e) (cond 
+                     [(assq e env) => cdr]
+                     [else (error who "undefined variable: ~a" e)])]
+      [(immediate-constant? e) `,e]
       [else (error who "invalid expression ~a" e)]))
-  (Expr e primitives))
+  (printf "~a" initial-env)
+  (Expr e initial-env))
 
 ;;; As above, but we remove any implicit begins.
 (define-language L1
