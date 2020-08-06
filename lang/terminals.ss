@@ -13,8 +13,14 @@
   (and (symbol? x)
        (not (primitive? x))))
 
-(define primitives
-  '(add1 sub1 integer->char char->integer zero? not null? + - = * < cons car
-    cdr cadr cddr caddr make-vector vector-ref vector-set!))
+(define unary-primitives
+  '(add1 sub1 integer->char char->integer zero? not null?))
 
-(define (primitive? x) (memq x primitives))
+(define binary-primitives
+  '(+ - = * < cons car cdr cadr cddr caddr make-vector vector-ref vector-set!))
+
+(define primitives
+  (append (map (lambda (pr) (cons pr 1)) unary-primitives)
+          (map (lambda (pr) (cons pr 2)) binary-primitives)))
+
+(define (primitive? x) (assq x primitives))
