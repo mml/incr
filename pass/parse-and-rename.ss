@@ -27,7 +27,7 @@
     (let ([x (cdr as)])
       (cond
         [(symbol? x) 
-         `(,x ,@e*)]
+         `(,x ,@(Expr* e* env))]
         [(number? x)
          (if (= x (length e*))
              `(,e0 ,@(Expr* e* env))
