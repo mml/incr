@@ -44,7 +44,13 @@
       (let-values ([(body labels) (Expr body)])
         (values `(closure ,label ,@y*)
                 (cons `(,label (code ,x* ,y* ,body)) labels))))]
-  [`(,e* __1)
-    (Expr* e*)]
+  [`(,(? primitive? pr) ,e* ___)
+    (let-values ([(e* labels) (Expr* e*)])
+      (values `(primcall ,pr ,e*) labels))]
+  [`(,f ,e* ___)
+    (let-values ([(f flabels) (Expr f)]
+                 [(e* elabels) (Expr* e*)])
+      (values `(funcall ,f ,@e*)
+              (append elabels flabels)))]
   ))
 
