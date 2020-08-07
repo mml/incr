@@ -280,22 +280,17 @@
   (test-case (let ([mkl (lambda (n self) (if (zero? n) () (cons #f (self (sub1 n) self))))])
                (mkl 5 mkl))
              "(#f #f #f #f #f)")
-  )
-(test-cases skip "old procedures"
-  (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
-      (labelcall len ()))
-    "0")
-  (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
-      (labelcall len (cons 1 ())))
-    "1")
-  (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
-      (labelcall len (cons 1 (cons 2 (cons 3 (cons 4 (cons 5 ())))))))
+  (test-case
+    (let ([mkl (lambda (n self) (if (zero? n) () (cons #f (self (sub1 n) self))))]
+          [len (lambda (l self) (if (null? l) 0 (add1 (self (cdr l) self))))])
+      (len (mkl 5 mkl) len))
     "5")
-  (test-case (labels ([fib (code (n) (if (zero? n) 1
-                                         (if (= 1 n) 1
-                                             (+ (labelcall fib (- n 1))
-                                                (labelcall fib (- n 2))))))])
-                     (labelcall fib 33))
-             "5702887")
-  
+  (test-case
+    (let ([fib (lambda (n self)
+                 (if (zero? n) 1
+                     (if (= 1 n) 1
+                         (+ (self (- n 1) self)
+                            (self (- n 2) self)))))])
+      (fib 33 fib))
+    "5702887")
   )
