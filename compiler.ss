@@ -39,11 +39,11 @@
 (define (emit-Code code env) (match code
   [`(code (,x* ___) () ,body) ; free variables not implemented yet
     (emit "  str lr,[sp,#~a]" link-register-index); save LR
-    (let loop ([x* x*] [si arg0-index] [env env])
+    (let loop ([x* x*] [arg-count 0] [env env])
       (cond [(null? x*)
-             (emit-expr body si env)]
+             (emit-expr body (arg-index arg-count) env)]
             [else
-              (loop (cdr x*) (- si (wordsize)) (extend-env (car x*) si env))]))
+              (loop (cdr x*) (add1 arg-count) (extend-env (car x*) (arg-index arg-count) env))]))
     (emit "  ldr lr,[sp,#~a]" link-register-index) ; restore LR
     (emit "  bx lr")
     ]))

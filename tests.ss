@@ -253,6 +253,18 @@
                  (add 20 25)))
              "1125")
   
+  (test-case (let ([fxid (lambda (n self) (if (zero? n) n (add1 (self (sub1 n) self))))])
+               (fxid 0 fxid))
+             "0")
+
+  (test-case (let ([fxid (lambda (n self) (if (zero? n) n (add1 (self (sub1 n) self))))])
+               (fxid 1 fxid))
+             "1")
+
+  (test-case (let ([fxid (lambda (n self) (if (zero? n) n (add1 (self (sub1 n) self))))])
+               (fxid 2 fxid))
+             "2")
+
   (test-case (let ([len (lambda (l len) (if (null? l) 0 (+ 1 (len (cdr l) len))))])
                (len () len))
              "0")
