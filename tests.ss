@@ -295,10 +295,16 @@
     "5702887")
   )
 
-(test-cases "tail calls"
+(test-cases skip "tail calls"
+  ; this one does no allocation, so it just pressures stack frames
   (test-case
-    (let ([mkl (lambda (n self) (if (zero? n) () (cons #f (self (sub1 n) self))))]
-          [len (lambda (l self) (if (null? l) 0 (add1 (self (cdr l) self))))])
-      (len (mkl 5000000 mkl) len))
+    (let ([fxid-helper
+            (lambda (n acc self)
+              (if (zero? n)
+                  acc
+                  (self (sub1 n) (add1 acc) self)))])
+      (let ([fxid (lambda (n helper)
+                    (helper n 0 helper))])
+        (fxid 5000000 fxid-helper)))
     "5000000")
   )
