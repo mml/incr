@@ -37,7 +37,7 @@
 
 (define (emit-Code code env) (match code
   [`(code (,x* ___) () ,body) ; free variables not implemented yet
-    (let loop ([x* x*] [si 0] [env env])
+    (let loop ([x* x*] [si (- (wordsize))] [env env])
       (cond [(null? x*)
              (emit "  str lr,[sp,#~a]" si) ; save LR
              (emit-expr body (- si (wordsize)) env)
