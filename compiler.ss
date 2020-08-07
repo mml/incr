@@ -321,7 +321,8 @@
   (emit-expr f si env)
     (with-saved-registers [si ("r4")]
     (emit "  str r0, [sp,#~a]" si) ; store closure
-    (emit "  and r4,r0,#-8") ; zero out tag and save in r4
+    (emit "  BIC r4,r0,#~a" closure-tag) ; zero out tag and save in r4
+    (emit "  LDR r4,[r4]") ; load target address
     (let loop ([e* e*] [new-si (- si (wordsize))])
       (cond
         [(null? e*)
