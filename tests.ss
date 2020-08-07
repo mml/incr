@@ -218,34 +218,38 @@
       (eleven))
     "11")
 
-  )
-#;(test-cases "procedures"
   (test-case
-    (labels ([ten (code () 10)])
-            (labelcall ten))
-    "10")
+    (let ([double (lambda (x) (* x 2))])
+      (double 10))
+    "20")
 
   (test-case
-    (labels ([eleven (code () (add1 10))])
-            (labelcall eleven))
-    "11")
+    (let ([double (lambda (x) (* x 2))])
+      (double (double 10)))
+    "40")
 
-  (test-case (labels ([double (code (x) (* x 2))])
-                    (labelcall double 10)) "20")
-  (test-case (labels ([double (code (x) (* x 2))])
-                      (labelcall double (labelcall double 10))) "40")
-  (test-case (labels ([double (code (x) (* x 2))]
-                       [triple (code (x) (* x 3))])
-                      (= (labelcall double (labelcall triple #xff0000))
-                         (labelcall triple (labelcall double #xff0000)))) "#t")
+  (test-case
+    (let ([double (lambda (x) (* x 2))]
+          [triple (lambda (x) (* x 3))])
+      (= (double (triple #xff0000))
+         (triple (double #xff0000))))
+    "#t")
 
-  (test-case (labels ([add (code (x y) (+ x y))]
-                      [mul (code (x y) (* x y))])
-                     (labelcall mul
-                                (labelcall add 10 15)
-                                (labelcall add 20 25)))
+  (test-case (let ([add (lambda (x y) (+ x y))]
+                   [mul (lambda (x y) (* x y))])
+               (mul
+                 (add 10 15)
+                 (add 20 25)))
              "1125")
-
+  
+  (test-case (let ([len (lambda (l len) (if (null? l) 0 (+ 1 (len (cdr l) len))))])
+               (len () len))
+             "0")
+  (test-case (let ([mkl (lambda (n mkl) (if (zero? n) () (cons #f (mkl (sub1 n)))))])
+               (mkl 5))
+             "(#f #f #f #f #f)")
+  )
+(test-cases skip "old procedures"
   (test-case (labels ([len (code (l) (if (null? l) 0 (+ 1 (labelcall len (cdr l)))))])
       (labelcall len ()))
     "0")
