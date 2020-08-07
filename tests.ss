@@ -294,3 +294,11 @@
       (fib 33 fib))
     "5702887")
   )
+
+(test-cases "tail calls"
+  (test-case
+    (let ([mkl (lambda (n self) (if (zero? n) () (cons #f (self (sub1 n) self))))]
+          [len (lambda (l self) (if (null? l) 0 (add1 (self (cdr l) self))))])
+      (len (mkl 5000000 mkl) len))
+    "5000000")
+  )
