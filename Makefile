@@ -4,7 +4,7 @@ OBJECT = $(WORKDIR)/x-test-program.o
 ASSEMBLY = $(WORKDIR)/x-test-program.s
 COMPILE_SCHEME = compiler.ss test-driver.ss annotate-free-variables.ss
 
-.PHONY: test debug dump annotest raco cat
+.PHONY: test debug dump annotest raco cat edit
 
 test: raco
 	racket -f tests.ss
@@ -23,3 +23,6 @@ dump: $(OBJECT)
 
 cat: $(ASSEMBLY)
 	less -j.5 -J $<
+
+edit: $(ASSEMBLY)
+	$(EDITOR) $<
