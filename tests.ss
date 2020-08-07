@@ -235,6 +235,17 @@
          (triple (double #xff0000))))
     "#t")
 
+  (test-case
+    (let ([add (lambda (a b) (+ a b))])
+      (add 20 20))
+    "40")
+
+  (test-case
+    (let ([g (lambda (f) (f 20 20))]
+          [add (lambda (a b) (+ a b))])
+      (g add))
+    "40")
+
   (test-case (let ([add (lambda (x y) (+ x y))]
                    [mul (lambda (x y) (* x y))])
                (mul

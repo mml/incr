@@ -35,15 +35,18 @@
   (emit-label (lookup x env))
   (emit-Code code env))
 
+; emit-Code emits a subroutine
 (define (emit-Code code env) (match code
   [`(code (,x* ___) () ,body) ; free variables not implemented yet
-    (let loop ([x* x*] [si (- (wordsize))] [env env])
+    (emit "  str lr,[sp,#~a]" link-register-index); save LR
+    (let loop ([x* x*] [si arg0-index] [env env])
       (cond [(null? x*)
-             (emit "  str lr,[sp,#~a]" si) ; save LR
-             (emit-expr body (- si (wordsize)) env)
-             (emit "  ldr lr,[sp,#~a]" si) ; restore LR
-             (emit "  bx lr")]
-            [else (loop (cdr x*) (- si (wordsize)) (extend-env (car x*) si env))]))]))
+             (emit-expr body si env)]
+            [else
+              (loop (cdr x*) (- si (wordsize)) (extend-env (car x*) si env))]))
+    (emit "  ldr lr,[sp,#~a]" link-register-index) ; restore LR
+    (emit "  bx lr")
+    ]))
 
 (define (emit-scheme-entry expr env)
   (emit-begin-function "scheme_entry")
@@ -74,16 +77,16 @@
      #'(let ([si si]) expr ...)]
     [(_ [si (reg)] expr ...)
      #'(begin
-         (emit "  str ~a,[sp,#~a]" reg si)
+         (emit "  str ~a,[sp,#~a] /* save ~a */" reg si reg)
          (let ([si (- si (wordsize))])
            (with-saved-registers [si ()] expr ...))
-         (emit "  ldr ~a,[sp,#~a]" reg si))]
+         (emit "  ldr ~a,[sp,#~a] /* restore ~a */" reg si reg))]
     [(_ [si (r1 r2 ...)] expr ...)
      #'(begin
-         (emit "  str ~a,[sp,#~a]" r1 si)
+         (emit "  str ~a,[sp,#~a] /* save ~a */" r1 si r1)
          (let ([si (- si (wordsize))])
            (with-saved-registers [si (r2 ...)] expr ...))
-         (emit "  ldr ~a,[sp,#~a]" r1 si))]))
+         (emit "  ldr ~a,[sp,#~a] /* restore ~a */" r1 si r1))]))
 
 (define (emit . args)
   (apply fprintf (compile-port) args)
@@ -120,6 +123,19 @@
 (define pair-tag #b001)
 (define vector-tag #b010)
 (define closure-tag #b110)
+
+;;; Scheme procedure calls
+; Our calling convention expects
+; sp-4 to be empty (we'll save the LR there)
+; sp-8 to be a closure object
+; sp-12 to be our first argument
+(define link-register-index (* -1 (wordsize)))
+(define closure-index (* -2 (wordsize)))
+(define arg0-index (* -3 (wordsize)))
+(define (arg-index arg-count)
+  (if (zero? arg-count)
+      arg0-index
+      (- (arg-index (sub1 arg-count)) (wordsize))))
 
 ; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
@@ -284,13 +300,14 @@
        (let ([rd (padbits (register->number dest) 4)]
              [lo12 (bitwise-and val #xfff)]
              [lo4 (shift -12 (bitwise-and val #xf000))]
-             [hi (shift -16 val)])
-         (emit "  /* mov ~a,#~a */" dest (bitwise-and val #xffff))
+             [hi (shift -16 val)]
+             [ilabel (if (eq? 'always condition) "" (symbol->string condition))])
+         (emit "  /* movw~a ~a,#~a */" ilabel dest (bitwise-and val #xffff))
          (emit "  .word 0b~a~a~a~a~a" cbits mov (padbits lo4 4) rd (padbits lo12 12))
          (unless (zero? hi)
            (let ([hi12 (bitwise-and hi #xfff)]
                  [hi4 (shift -12 (bitwise-and hi #xf000))])
-             (emit "  /* movt ~a,#~a */" dest hi)
+             (emit "  /* movt~a ~a,#~a */" ilabel dest hi)
              (emit "  .word 0b~a~a~a~a~a" cbits movt (padbits hi4 4) rd (padbits hi12 12))))))]
     ))
 
@@ -317,22 +334,27 @@
     (emit "  add r8,r8,#~a" size)
     (emit "  @ closure}}}")))
 
+; emit-Funcall sets up a call and then branches
 (define (emit-Funcall f e* si env)
-  (emit-expr f si env)
-    (with-saved-registers [si ("r4")]
-    (emit "  str r0, [sp,#~a]" si) ; store closure
-    (emit "  BIC r4,r0,#~a" closure-tag) ; zero out tag and save in r4
-    (emit "  LDR r4,[r4]") ; load target address
-    (let loop ([e* e*] [new-si (- si (wordsize))])
-      (cond
-        [(null? e*)
-         (emit "  sub sp,sp,#~a" (- si))
-         (emit "  blx r4")
-         (emit "  add sp,sp,#~a" (- si))]
-        [else
-          (emit-expr (car e*) new-si env)
-          (emit "  str r0, [sp,#~a]" new-si)
-          (loop (cdr e*) (- new-si (wordsize)))]))))
+  (emit "  @ funcall")
+  (emit-expr f si env) ; r0 = closure
+  ; We now have to evaluate all arguments and gradually add their values to the stack.
+  (with-saved-registers [si ("r4")] ; Last thing we're saving on the stack
+    (let ([psi si]) ; procedure SI
+      (emit "  str r0, [sp,#~a] /* put closure on stack */" (+ psi closure-index))
+      (emit "  BIC r4,r0,#~a /* zero out tag */" closure-tag)
+      (emit "  LDR r4,[r4] /* load branch target */") ; load target address
+      (let loop ([e* e*] [arg-count 0] [si (+ psi arg0-index)])
+        (cond
+          [(null? e*)
+           (emit "  sub sp,sp,#~a /* set procedure SP */" (- psi))
+           (emit "  blx r4")
+           (emit "  add sp,sp,#~a /* restore SP */" (- psi))]
+          [else
+            (emit-expr (car e*) si env)
+            (emit "  str r0, [sp,#~a] /* store arg ~a */"
+                  (+ psi (arg-index arg-count)) arg-count)
+            (loop (cdr e*) (add1 arg-count) (- si (wordsize)))])))))
 
 (define (emit-allocation-primcall op expr si env)
   (case op
@@ -565,8 +587,8 @@
                  (f (cdr args) (- new-si (wordsize)))]))]))
 
 (define (emit-expr expr si env) (match expr
-  [(? immediate? c) (emit-move "r0" (immediate-rep expr))]
-  [(? symbol? x) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
+  [(? immediate? c) (emit-move "r0" (immediate-rep c))]
+  [(? symbol? x) (emit "  ldr r0, [sp,#~a] /* ~a */" (lookup x env) (symbol->string x))]
   [`(primcall ,pr ,e* ___) (emit-primitive-call `(,pr ,@e*) si env)]
   [`(begin ,e* ___) (emit-begin e* si env)]
   [`(let ,bindings ,body) (emit-let bindings body si env)]
