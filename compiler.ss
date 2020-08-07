@@ -89,8 +89,21 @@
            (with-saved-registers [si (r2 ...)] expr ...))
          (emit "  ldr ~a,[sp,#~a] /* restore ~a */" r1 si r1))]))
 
-(define (emit . args)
-  (apply fprintf (compile-port) args)
+(define-syntax (emit stx)
+  (syntax-case stx (//)
+    [(_ ifmt iarg ... (// cfmt carg ...))
+     #'(emit/ (list cfmt carg ...) ifmt iarg ...)]
+    [(_ ifmt iarg ...)
+     #'(emit/ #f ifmt iarg ...)]))
+
+(define (emit/ comment . args)
+  (let ([ins (apply format args)])
+    (if comment
+     (let* ([comment (apply format comment)]
+            [wslen (max 0 (- 24 (string-length ins)))]
+            [ws (make-string wslen #\space)])
+       (fprintf (compile-port) "~a~a@ ~a" ins ws comment))
+      (apply fprintf (compile-port) args)))
   (newline (compile-port)))
 
 
@@ -340,9 +353,9 @@
   ; We now have to evaluate all arguments and gradually add their values to the stack.
   (with-saved-registers [si ("r4")] ; Last thing we're saving on the stack
     (let ([psi si]) ; procedure SI
-      (emit "  str r0, [sp,#~a] /* put closure on stack */" (+ psi closure-index))
-      (emit "  BIC r4,r0,#~a /* zero out tag */" closure-tag)
-      (emit "  LDR r4,[r4] /* load branch target */") ; load target address
+      (emit "  str r0, [sp,#~a]" (+ psi closure-index) (// "put closure on stack"))
+      (emit "  BIC r4,r0,#~a" closure-tag              (// "zero out tag"))
+      (emit "  LDR r4,[r4]"                            (// "load branch target"))
       (let loop ([e* e*] [arg-index (+ psi arg0-index)] [arg-count 0] [si (+ psi arg0-index)])
         (cond
           [(null? e*)
