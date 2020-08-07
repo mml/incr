@@ -313,7 +313,7 @@
         (emit "  ldr r0, [sp,#~a]" (lookup (car free*) env))
         (emit "  str r0,[~a,#~a]" heap-register index)
         (loop (cdr free*) (+ index (wordsize)))))
-    (emit "  and r0,r8,#~a" closure-tag)
+    (emit "  orr r0,r8,#~a" closure-tag)
     (emit "  add r8,r8,#~a" size)
     (emit "  @ closure}}}")))
 
