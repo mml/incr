@@ -39,11 +39,12 @@
 (define (emit-Code code env) (match code
   [`(code (,x* ___) () ,body) ; free variables not implemented yet
     (emit "  str lr,[sp,#~a]" link-register-index); save LR
-    (let loop ([x* x*] [arg-count 0] [env env])
+    (let loop ([x* x*] [arg-count 0] [arg-index arg0-index] [env env])
       (cond [(null? x*)
-             (emit-expr body (arg-index arg-count) env)]
+             (emit-expr body arg-index env)]
             [else
-              (loop (cdr x*) (add1 arg-count) (extend-env (car x*) (arg-index arg-count) env))]))
+              (loop (cdr x*) (add1 arg-count) (- arg-index (wordsize))
+                    (extend-env (car x*) arg-index env))]))
     (emit "  ldr lr,[sp,#~a]" link-register-index) ; restore LR
     (emit "  bx lr")
     ]))
@@ -342,7 +343,7 @@
       (emit "  str r0, [sp,#~a] /* put closure on stack */" (+ psi closure-index))
       (emit "  BIC r4,r0,#~a /* zero out tag */" closure-tag)
       (emit "  LDR r4,[r4] /* load branch target */") ; load target address
-      (let loop ([e* e*] [arg-count 0] [si (+ psi arg0-index)])
+      (let loop ([e* e*] [arg-index (+ psi arg0-index)] [arg-count 0] [si (+ psi arg0-index)])
         (cond
           [(null? e*)
            (emit "  sub sp,sp,#~a /* set procedure SP */" (- psi))
@@ -351,8 +352,8 @@
           [else
             (emit-expr (car e*) si env)
             (emit "  str r0, [sp,#~a] /* store arg ~a */"
-                  (+ psi (arg-index arg-count)) arg-count)
-            (loop (cdr e*) (add1 arg-count) (- si (wordsize)))])))))
+                  arg-index arg-count)
+            (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))])))))
 
 (define (emit-allocation-primcall op expr si env)
   (case op
