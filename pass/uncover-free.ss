@@ -13,13 +13,13 @@
     e))
 
 (define (Expr* expr*)
-  (if (null? expr*)
-      (error 'uncover-free "internal bug: Expr* called with empty list")
-      (let loop ([expr (car expr*)] [expr* (cdr expr*)] [rexpr* '()] [rfree* '()])
-        (let-values ([(rexpr rfree) (Expr expr)])
-          (if (null? expr*)
-              (values (reverse (cons rexpr rexpr*)) (reverse (cons rfree rfree*)))
-              (loop (car expr*) (cdr expr*) (cons rexpr rexpr*) (cons rfree rfree*)))))))
+  (let loop ([expr* expr*] [rexpr* '()] [rfree* '()])
+    (cond
+      [(null? expr*)
+       (values (reverse rexpr*) (reverse rfree*))]
+      [else
+        (let-values ([(rexpr rfree) (Expr (car expr*))])
+          (loop (cdr expr*) (cons rexpr rexpr*) (cons rfree rfree*)))])))
 
 (define (Expr expr) (match expr
   [(? immediate? c) (values c (set))]
@@ -31,7 +31,7 @@
   [`(let ([,x* ,e*] ___) ,body)
     (let-values ([(e* free*) (Expr* e*)])
       (let-values ([(body free) (Expr body)])
-        (let* ([ufree (set-union free (apply set-union free*))]
+        (let* ([ufree (apply set-union (cons free free*))]
                [free (set-subtract ufree (apply set x*))])
           (let ([bindings (map list x* e*)])
             (values `(let ,bindings ,body) free)))))]
@@ -39,6 +39,12 @@
     (let-values ([(body free) (Expr body)])
       (let ([free (set-subtract free (apply set x*))])
         (values `(lambda ,x* (free (,@(set->list free)) ,body)) (set))))]
+  [`(if ,test ,conseq ,altern)
+    (let-values ([(test tfree) (Expr test)]
+                 [(conseq cfree) (Expr conseq)]
+                 [(altern afree) (Expr altern)])
+      (values `(if ,test ,conseq ,altern)
+              (apply set-union (list tfree cfree afree))))]
   [`(,e* __1)
     (let-values ([(e* free*) (Expr* e*)])
       (values e* (apply set-union free*)))]

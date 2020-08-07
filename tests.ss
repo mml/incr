@@ -209,6 +209,18 @@
 
 (test-cases "procedures"
   (test-case
+    (let ([ten (lambda () 10)])
+      (ten))
+    "10")
+
+  (test-case
+    (let ([eleven (lambda () (add1 10))])
+      (eleven))
+    "11")
+
+  )
+#;(test-cases "procedures"
+  (test-case
     (labels ([ten (code () 10)])
             (labelcall ten))
     "10")

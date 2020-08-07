@@ -3,6 +3,7 @@
 (provide parse-and-rename)
 
 (require racket/match)
+(require racket/trace)
 (require "../lang/terminals.ss")
 
 (define (parse-and-rename expr)
@@ -44,7 +45,7 @@
    (cond [(assq x env) => cdr]
          [else (error 'parse-and-rename "undefined variable ~a" x)])]
   [`(begin ,expr* __1)
-    `(begin ,@(map Expr* expr* env))]
+    `(begin ,@(Expr* expr* env))]
   [`(let ([,x* ,e*] ___) ,body* __1) 
     (let* ([ux* (map unique-variable x*)]
            [e* (Expr* e* env)]
@@ -55,6 +56,8 @@
     (let* ([ux* (map unique-variable x*)]
            [env (append (map cons x* ux*) env)])
       `(lambda ,ux* ,@(Expr* body* env)))]
+  [`(if ,test ,conseq ,altern)
+    `(if ,(Expr test env) ,(Expr conseq env) ,(Expr altern env))]
   [`(,(? symbol? e0) ,e* ___)
     (App e0 e* env)]
   [`(,e0 ,e* ___)

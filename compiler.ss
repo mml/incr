@@ -1,9 +1,64 @@
 #lang racket
 
-(require racket/match)
 (provide compile-program)
 (provide compile-port)
 (provide scramble-link-register?)
+
+(require racket/match)
+(require racket/trace)
+(require "pass/all.ss")
+
+(define (compile-program prog)
+  (let ([labels (collect-code
+                  (uncover-free
+                    (make-begin-explicit
+                      (parse-and-rename prog))))])
+    (emit-prologue)
+    (emit-Labels labels)
+    (emit-epilogue)))
+
+(define (emit-Labels expr) (match expr
+  [`(labels ([,x* ,code*] ___) ,body)
+    (let ([env (emit-Def* x* code*)])
+      (emit-scheme-entry body env))]))
+
+(define (emit-Def* x* code*)
+  (let ([env (map (lambda (x) (cons x (unique-label))) x*)])
+    (let loop ([x* x*] [code* code*])
+      (cond [(null? x*) env]
+            [else
+              (emit-Def (car x*) (car code*) env)
+              (loop (cdr x*) (cdr code*))]))))
+
+(define (emit-Def x code env)
+  (emit "/* label ~a */" x)
+  (emit-label (lookup x env))
+  (emit-Code code env))
+
+(define (emit-Code code env) (match code
+  [`(code (,x* ___) () ,body) ; free variables not implemented yet
+    (let loop ([x* x*] [si 0] [env env])
+      (cond [(null? x*)
+             (emit "  str lr,[sp,#~a]" si) ; save LR
+             (emit-expr body (- si (wordsize)) env)
+             (emit "  ldr lr,[sp,#~a]" si) ; restore LR
+             (emit "  bx lr")]
+            [else (loop (cdr x*) (- si (wordsize)) (extend-env (car x*) si env))]))]))
+
+(define (emit-scheme-entry expr env)
+  (emit-begin-function "scheme_entry")
+  (emit "  stmfd sp!, {lr}") ; Save LR
+  (when (scramble-link-register?)
+    (emit-move32 "lr" #xdeadbeef))
+  (emit "  mov ~a,r0" heap-register) ; Save heap base
+  (emit-expr expr (- 0 (wordsize)) env)
+  (emit "  ldmfd sp!, {lr}") ;; Restore LR
+  (emit "  bx lr")
+  (emit-end-function "scheme_entry"))
+
+(define (emit-epilogue)
+  (emit ".ident \"mml scheme compiler\"")
+  (emit ".section .note.GNU-stack,\"\",%progbits"))
 
 (define compile-port
   (make-parameter
@@ -64,6 +119,7 @@
 (define null-value #b00111111)
 (define pair-tag #b001)
 (define vector-tag #b010)
+(define closure-tag #b110)
 
 ; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
@@ -243,6 +299,39 @@
 
 (define (emit-label l)
   (emit "~a:" l))
+
+(define (emit-Closure label free* si env)
+  (let* ([nfree (length free*)]               ; number of free variables
+         [size (add1 nfree)]                  ; plus 1 for the label address
+         [size (* (wordsize) size)]           ; in words
+         [size (bitwise-and -8 (+ 11 size))]) ; align to next dword
+    (emit "  @ closure ~a ~a{{{" label free*)
+    (emit "  ldr r0,=~a" (lookup label env))  ; pseudo-instruction
+    (emit "  str r0,[~a]" heap-register)      ; write pointer
+    (let loop ([free* free*] [index (wordsize)])
+      (unless (null? free*)
+        (emit "  ldr r0, [sp,#~a]" (lookup (car free*) env))
+        (emit "  str r0,[~a,#~a]" heap-register index)
+        (loop (cdr free*) (+ index (wordsize)))))
+    (emit "  and r0,r8,#~a" closure-tag)
+    (emit "  add r8,r8,#~a" size)
+    (emit "  @ closure}}}")))
+
+(define (emit-Funcall f e* si env)
+  (emit-expr f si env)
+    (with-saved-registers [si ("r4")]
+    (emit "  str r0, [sp,#~a]" si) ; store closure
+    (emit "  and r4,r0,#-8") ; zero out tag and save in r4
+    (let loop ([e* e*] [new-si (- si (wordsize))])
+      (cond
+        [(null? e*)
+         (emit "  sub sp,sp,#~a" (- si))
+         (emit "  blx r4")
+         (emit "  add sp,sp,#~a" (- si))]
+        [else
+          (emit-expr (car e*) new-si env)
+          (emit "  str r0, [sp,#~a]" new-si)
+          (loop (cdr e*) (- new-si (wordsize)))]))))
 
 (define (emit-allocation-primcall op expr si env)
   (case op
@@ -474,7 +563,17 @@
                  (emit "  str r0, [sp,#~a]" new-si)
                  (f (cdr args) (- new-si (wordsize)))]))]))
 
-(define (emit-expr expr si env)
+(define (emit-expr expr si env) (match expr
+  [(? immediate? c) (emit-move "r0" (immediate-rep expr))]
+  [(? symbol? x) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
+  [`(primcall ,pr ,e* ___) (emit-primitive-call `(,pr ,@e*) si env)]
+  [`(begin ,e* ___) (emit-begin e* si env)]
+  [`(let ,bindings ,body) (emit-let bindings body si env)]
+  [`(if ,test ,conseq ,altern) (emit-if test conseq altern si env)]
+  [`(closure ,label ,free* ___) (emit-Closure label free* si env)]
+  [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]))
+
+(define (old-emit-expr expr si env)
   (cond
     [(immediate? expr)
      (emit-move "r0" (immediate-rep expr))]
@@ -485,26 +584,3 @@
     [(variable-ref? expr) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
     [(labelcall? expr) (emit-labelcall expr si env)]
     [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
-
-(define (emit-program ldef x)
-  (emit-prologue)
-
-  (let ([initial-env (emit-ldef ldef (empty-env))])
-    (emit-begin-function "scheme_entry")
-    (emit "  stmfd sp!, {lr}") ; Save LR
-    (when (scramble-link-register?)
-      (emit-move32 "lr" #xdeadbeef))
-    (emit "  mov ~a,r0" heap-register) ; Save heap base
-    (emit-expr x (- 0 (wordsize)) initial-env)
-    (emit "  ldmfd sp!, {lr}") ;; Restore LR
-    (emit "  bx lr")
-    (emit-end-function "scheme_entry"))
-
-  (emit ".ident \"mml scheme compiler\"")
-  (emit ".section .note.GNU-stack,\"\",%progbits"))
-
-(define (compile-program prog)
-  (match prog
-         [(list 'labels (list ldef ___) expr)
-          (emit-program ldef expr)]
-         [expr (emit-program '() expr)]))

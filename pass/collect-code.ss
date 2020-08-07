@@ -3,6 +3,7 @@
 (provide collect-code)
 
 (require racket/match)
+(require racket/trace)
 (require "../lang/terminals.ss")
 
 (define anon
@@ -19,13 +20,12 @@
     `(labels ,labels ,expr)))
 
 (define (Expr* expr*)
-  (if (null? expr*)
-      (error 'collect-code "internal bug: Expr* called with empty list")
-      (let loop ([expr (car expr*)] [expr* (cdr expr*)] [rexpr* '()] [labels '()])
-        (let-values ([(rexpr elabels) (Expr expr)])
-          (if (null? expr*)
-              (values (reverse (cons rexpr rexpr*)) (append elabels labels))
-              (loop (car expr*) (cdr expr*) (cons rexpr rexpr*) (append elabels labels)))))))
+  (let loop ([expr* expr*] [rexpr* '()] [labels '()])
+    (cond
+      [(null? expr*) (values (reverse rexpr*) labels)]
+      [else
+        (let-values ([(expr elabels) (Expr (car expr*))])
+          (loop (cdr expr*) (cons expr rexpr*) (append elabels labels)))])))
 
 (define (Expr expr) (match expr
   [(? immediate? c) (values c '())]
@@ -44,9 +44,15 @@
       (let-values ([(body labels) (Expr body)])
         (values `(closure ,label ,@y*)
                 (cons `(,label (code ,x* ,y* ,body)) labels))))]
+  [`(if ,test ,conseq ,altern)
+    (let-values ([(test tlabels) (Expr test)]
+                 [(conseq clabels) (Expr conseq)]
+                 [(altern alabels) (Expr altern)])
+      (values `(if ,test ,conseq ,altern)
+              (append tlabels clabels alabels)))]
   [`(,(? primitive? pr) ,e* ___)
     (let-values ([(e* labels) (Expr* e*)])
-      (values `(primcall ,pr ,e*) labels))]
+      (values `(primcall ,pr ,@e*) labels))]
   [`(,f ,e* ___)
     (let-values ([(f flabels) (Expr f)]
                  [(e* elabels) (Expr* e*)])

@@ -14,10 +14,10 @@
        (not (primitive? x))))
 
 (define unary-primitives
-  '(add1 sub1 integer->char char->integer zero? not null?))
+  '(add1 sub1 integer->char char->integer zero? not null? car cdr cadr cddr caddr))
 
 (define binary-primitives
-  '(+ - = * < cons car cdr cadr cddr caddr make-vector vector-ref vector-set!))
+  '(+ - = * < cons make-vector vector-ref vector-set!))
 
 (define primitives
   (append (map (lambda (pr) (cons pr 1)) unary-primitives)
