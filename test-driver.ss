@@ -45,7 +45,7 @@
     (error 'gcc "build error")))
 
 (define (build)
-  (unless (system-successful? (format "gcc -DNO_NEWLINE -g -o ~a ~a ~a" (program-path) (string-append (output-dir) "/driver.o") (object-path)))
+  (unless (system-successful? (format "gcc -DNO_NEWLINE -static -g -o ~a ~a ~a" (program-path) (string-append (output-dir) "/driver.o") (object-path)))
     (error 'gcc "build error")))
 
 (define (execute)
