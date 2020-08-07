@@ -205,7 +205,15 @@
   (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
                 (caddr (cddr l))) "5")
   (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
-                (null? (cdr (cddr (cddr l))))) "#t"))
+                (null? (cdr (cddr (cddr l))))) "#t")
+  (test-case (cons 10 20)
+             "(10 . 20)")
+  (test-case (cons
+               (cons 10 (cons 20 ()))
+               (cons
+                 (cons 30 (cons 40 ()))
+                 ()))
+             "((10 20) (30 40))"))
 
 (test-cases "procedures"
   (test-case
@@ -268,8 +276,9 @@
   (test-case (let ([len (lambda (l len) (if (null? l) 0 (+ 1 (len (cdr l) len))))])
                (len () len))
              "0")
-  (test-case (let ([mkl (lambda (n mkl) (if (zero? n) () (cons #f (mkl (sub1 n)))))])
-               (mkl 5))
+
+  (test-case (let ([mkl (lambda (n self) (if (zero? n) () (cons #f (self (sub1 n) self))))])
+               (mkl 5 mkl))
              "(#f #f #f #f #f)")
   )
 (test-cases skip "old procedures"

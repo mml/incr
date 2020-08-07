@@ -21,8 +21,11 @@
 #define VECTOR_TAG 0b010
 #define ADDRESS_MASK 0xfffffff8
 
+#define PAIR_TAG 0b001
+
 extern int scheme_entry();
 void print_ptr(int);
+void print_cdr(int);
 
 static char* allocate_protected_space(int size){
   int page = getpagesize();
@@ -68,6 +71,32 @@ void print_vector(int *addr) {
   printf(")");
 }
 
+void print_pair(int *addr) {
+  int car = addr[0];
+  int cdr = addr[1];
+
+  printf("(");
+  print_ptr(car);
+  print_cdr(cdr);
+  printf(")");
+}
+
+void print_cdr(int cdr) {
+  if (cdr == NULL_VALUE) {
+    return;
+  } else if (cdr & PAIR_TAG) {
+    int *addr = (int *)(cdr & ADDRESS_MASK);
+    int cadr = addr[0];
+    int cddr = addr[1];
+    printf(" ");
+    print_ptr(cadr);
+    print_cdr(cddr);
+  } else {
+    printf(" . ");
+    print_ptr(cdr);
+  }
+}
+
 void print_ptr(int val) {
   if (val == NULL_VALUE) {
     printf("()");
@@ -82,6 +111,8 @@ void print_ptr(int val) {
     printf("#\\%c", c);
   } else if (val & VECTOR_TAG) {
     print_vector((int *)(val & ADDRESS_MASK));
+  } else if (val & PAIR_TAG) {
+    print_pair((int *)(val & ADDRESS_MASK));
 	} else {
 		errx(1, "Unknown value 0x%04x\n", val);
 	}
