@@ -133,9 +133,7 @@
 (define closure-index (* -2 (wordsize)))
 (define arg0-index (* -3 (wordsize)))
 (define (arg-index arg-count)
-  (if (zero? arg-count)
-      arg0-index
-      (- (arg-index (sub1 arg-count)) (wordsize))))
+  (- arg0-index (* (wordsize) arg-count)))
 
 ; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
