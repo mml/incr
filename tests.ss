@@ -41,7 +41,7 @@
   (test-case #\A "#\\A")
 
   ; null
-  (test-case () "()"))
+  (test-case '() "()"))
 
 (test-cases "Unary primitives"
   ;;; unary primitives
@@ -68,7 +68,7 @@
   (test-case (not 0) "#f")
 
   ; null?
-  (test-case (null? ()) "#t")
+  (test-case (null? '()) "#t")
   (test-case (null? #f) "#f")
 
   (test-case (sub1 (add1 0)) "0")
@@ -193,26 +193,26 @@
   (test-case (car (cons 10 (cons 15 20))) "10")
   (test-case (cadr (cons 10 (cons 15 20))) "15")
   (test-case (cddr (cons 10 (cons 15 20))) "20")
-  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
+  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 '())))))])
                 (car l))
              "1")
-  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
+  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 '())))))])
                 (car (cdr l))) "2")
-  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
+  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 '())))))])
                 (caddr l)) "3")
-  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
+  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 '())))))])
                 (cadr (cddr l))) "4")
-  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
+  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 '())))))])
                 (caddr (cddr l))) "5")
-  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 ())))))])
+  (test-case (let ([l (cons 1 (cons 2 (cons 3 ( cons 4 (cons 5 '())))))])
                 (null? (cdr (cddr (cddr l))))) "#t")
   (test-case (cons 10 20)
              "(10 . 20)")
   (test-case (cons
-               (cons 10 (cons 20 ()))
+               (cons 10 (cons 20 '()))
                (cons
-                 (cons 30 (cons 40 ()))
-                 ()))
+                 (cons 30 (cons 40 '()))
+                 '()))
              "((10 20) (30 40))"))
 
 (test-cases "procedures"
@@ -274,14 +274,14 @@
              "2")
 
   (test-case (let ([len (lambda (l len) (if (null? l) 0 (+ 1 (len (cdr l) len))))])
-               (len () len))
+               (len '() len))
              "0")
 
-  (test-case (let ([mkl (lambda (n self) (if (zero? n) () (cons #f (self (sub1 n) self))))])
+  (test-case (let ([mkl (lambda (n self) (if (zero? n) '() (cons #f (self (sub1 n) self))))])
                (mkl 5 mkl))
              "(#f #f #f #f #f)")
   (test-case
-    (let ([mkl (lambda (n self) (if (zero? n) () (cons #f (self (sub1 n) self))))]
+    (let ([mkl (lambda (n self) (if (zero? n) '() (cons #f (self (sub1 n) self))))]
           [len (lambda (l self) (if (null? l) 0 (add1 (self (cdr l) self))))])
       (len (mkl 5 mkl) len))
     "5")

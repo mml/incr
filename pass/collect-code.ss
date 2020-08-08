@@ -28,7 +28,7 @@
           (loop (cdr expr*) (cons expr rexpr*) (append elabels labels)))])))
 
 (define (Expr expr) (match expr
-  [(? immediate? c) (values c '())]
+  [`(quote ,c) (values expr '())]
   [(? primitive? pr) (values pr '())]
   [(? variable? x) (values x '())]
   [`(begin ,expr* __1)

@@ -40,7 +40,8 @@
                  e0 x)]))))
 
 (define (Expr expr env) (match expr
-  [(? immediate? c) c]
+  [(? immediate? c) `',c]
+  [`(quote ,(? immediate? c)) expr]
   [(? symbol? x)
    (cond [(assq x env) => cdr]
          [else (error 'parse-and-rename "undefined variable ~a" x)])]

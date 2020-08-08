@@ -22,7 +22,7 @@
           (loop (cdr expr*) (cons rexpr rexpr*) (cons rfree rfree*)))])))
 
 (define (Expr expr) (match expr
-  [(? immediate? c) (values c (set))]
+  [`(quote ,c) (values expr (set))]
   [(? primitive? pr) (values pr (set))]
   [(? variable? x) (values x (set x))]
   [`(begin ,expr* __1)

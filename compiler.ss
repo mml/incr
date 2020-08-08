@@ -623,7 +623,7 @@
                  (f (cdr args) (- new-si (wordsize)))]))]))
 
 (define (emit-expr expr si env) (match expr
-  [(? immediate? c) (emit-move "r0" (immediate-rep c))]
+  [`(quote ,c) (emit-move "r0" (immediate-rep c))]
   [(? symbol? x) (emit "  ldr r0, [sp,#~a] /* ~a */" (lookup x env) (symbol->string x))]
   [`(primcall ,pr ,e* ___) (emit-primitive-call `(,pr ,@e*) si env)]
   [`(begin ,e* ___) (emit-begin e* si env)]

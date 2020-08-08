@@ -34,7 +34,7 @@
         (loop (cdr e*) (cons (list (tmp) (car e*)) bindings)))))
 
 (define (Expr expr tail?) (match expr
-  [(? immediate? c) c]
+  [`(quote ,c) expr]
   [(? primitive? pr) pr]
   [(? variable? x) x]
   [`(closure ,label ,y* ___)
