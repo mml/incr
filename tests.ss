@@ -1,5 +1,12 @@
 (require "test-driver.ss")
 
+(test-cases "closures"
+  (test-case
+    (let ([incr (lambda (x) (add1 x))])
+      (let ([id (lambda (x) (sub1 (incr x)))])
+        (id 10)))
+    "10"))
+
 (test-cases "begin"
   (test-case (begin 0) "0")
   (test-case (begin 0 10) "10"))
