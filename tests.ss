@@ -295,7 +295,7 @@
     "5702887")
   )
 
-(test-cases skip "tail calls"
+(test-cases "tail calls"
   ; this one does no allocation, so it just pressures stack frames
   (test-case
     (let ([fxid-helper

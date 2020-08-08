@@ -9,10 +9,11 @@
 (require "pass/all.ss")
 
 (define (compile-program prog)
-  (let ([labels (collect-code
-                  (uncover-free
-                    (make-begin-explicit
-                      (parse-and-rename prog))))])
+  (let ([labels (identify-tail-calls
+                  (collect-code
+                    (uncover-free
+                      (make-begin-explicit
+                        (parse-and-rename prog)))))])
     (emit-prologue)
     (emit-Labels labels)
     (emit-epilogue)))
@@ -346,6 +347,29 @@
     (emit "  add r8,r8,#~a" size)
     (emit "  @ closure}}}")))
 
+; emit-Tailcall sets up a tail call and then branches
+(define (emit-Tailcall f e* si env)
+  ; We are clobbering our incoming stack frame.  Even the LR, which we really
+  ; should save.  We restore it first as a kludge.  In the future, we should
+  ; emit a special Lx_tail label pointing to the spot right after where we save
+  ; the LR on the stack.  Then we can branch to there instead.
+  (emit "  @ tailcall")
+  (emit-expr f si env) ; r0 = closure
+  (emit "  str r0, [sp,#~a]" closure-index (// "put closure on stack"))
+  ; We now have to evaluate all arguments and gradually add their values to the stack.
+  (let loop ([e* e*] [arg-index arg0-index] [arg-count 0] [si arg0-index])
+    (cond
+      [(null? e*)
+       (emit "  ldr r0,[sp,#~a]" closure-index       (// "load closure into r0"))
+       (emit "  BIC r0,r0,#~a" closure-tag           (// "zero out tag"))
+       (emit "  LDR r0,[r0]"                         (// "load branch target"))
+       (emit "  LDR LR,[sp,#~a]" link-register-index (// "hack to preserve LR"))
+       (emit "  bx r0")]
+      [else
+        (emit-expr (car e*) si env)
+        (emit "  str r0, [sp,#~a]" arg-index   (// "store arg ~a" arg-count))
+        (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))])))
+
 ; emit-Funcall sets up a call and then branches
 (define (emit-Funcall f e* si env)
   (emit "  @ funcall")
@@ -606,7 +630,8 @@
   [`(let ,bindings ,body) (emit-let bindings body si env)]
   [`(if ,test ,conseq ,altern) (emit-if test conseq altern si env)]
   [`(closure ,label ,free* ___) (emit-Closure label free* si env)]
-  [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]))
+  [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]
+  [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]))
 
 (define (old-emit-expr expr si env)
   (cond
