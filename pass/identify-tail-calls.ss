@@ -4,6 +4,7 @@
 
 (require racket/match)
 (require racket/trace)
+(require "generators.ss")
 (require "../lang/terminals.ss")
 
 (define (identify-tail-calls prog)
@@ -59,12 +60,3 @@
   [`(primcall ,pr ,e* ___)
     `(primcall ,pr ,@(Expr* e* #f))]
   ))
-
-(define tmp
-  (let ()
-    (define i 0)
-    (lambda ()
-      (let ([n i])
-        (set! i (add1 i))
-        (string->symbol
-          (string-append "tmp" (number->string n)))))))

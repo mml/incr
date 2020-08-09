@@ -4,6 +4,7 @@
 
 (require racket/match)
 (require racket/trace)
+(require "generators.ss")
 (require "../lang/terminals.ss")
 
 (define (parse-and-rename expr)
@@ -15,15 +16,6 @@
   (check-equal? (parse-and-rename 9) ''9)
   (check-equal? (parse-and-rename #t) ''#t)
   )
-
-(define unique-variable
-  (let ()
-    (define i 0)
-    (lambda (x)
-      (let ([n i])
-        (set! i (add1 i))
-        (string->symbol
-          (string-append (symbol->string x) "." (number->string n)))))))
 
 (define (Expr* expr* env)
   (map (lambda (expr) (Expr expr env)) expr*))
