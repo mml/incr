@@ -45,7 +45,9 @@
              (emit-expr body arg-index env)]
             [else
               (loop (cdr x*) (add1 arg-count) (- arg-index (wordsize))
-                    (extend-env (car x*) arg-index env))]))
+                    (extend-env (car x*)
+                                (cons "sp" arg-index)
+                                env))]))
     (emit "  ldr lr,[sp,#~a]" link-register-index) ; restore LR
     (emit "  bx lr")
     ]))
@@ -64,6 +66,10 @@
 (define (emit-epilogue)
   (emit ".ident \"mml scheme compiler\"")
   (emit ".section .note.GNU-stack,\"\",%progbits"))
+
+(define (emit-varref x si env)
+  (let ([loc (lookup x env)])
+    (emit "  ldr r0,[~a,#~a]" (car loc) (cdr loc) (// "~a" x))))
 
 (define compile-port
   (make-parameter
@@ -122,7 +128,6 @@
   (cons (cons name index) env))
 (define (lookup x env)
   (cdr (assoc x env)))
-(define heap-register "r8")
 
 ;;; Fixnums end in #b00.
 ;;; All other integral types end in #b1111
@@ -139,6 +144,28 @@
 (define vector-tag #b010)
 (define closure-tag #b110)
 
+;;; Register roles
+;;; See also https://static.docs.arm.com/ihi0042/j/IHI0042J_2020Q2_aapcs32.pdf
+;;; Chapter 6, Section 6.1
+;; Caller-saved
+; r0-r3 are argument and retun value registers also called a1-a4
+; r12 should be treated as a scratch register... it could be altered by long
+; jumps, in which case it's called the intra-procedure-call scratch register
+; (IP)
+
+;; Callee-saved
+; r4-r8,r10 are variable registers also called v1-v5,v7
+; r9 may have special meaning, but if not it can be treated as v6
+;   under Linux, it doesn't appear to be special
+; r11 is the frame pointer (FP) if used, otherwise v8
+; r13 is the stack pointer (SP)
+
+;; Special
+; r14 is the link register (LR)
+; r15 is the program counter (PC)
+
+(define heap-register "v5")
+(define closure-register "v7")
 ;;; Scheme procedure calls
 ; Our calling convention expects
 ; sp-4 to be empty (we'll save the LR there)
@@ -344,8 +371,8 @@
         (emit "  ldr r0, [sp,#~a]" (lookup (car free*) env))
         (emit "  str r0,[~a,#~a]" heap-register index)
         (loop (cdr free*) (+ index (wordsize)))))
-    (emit "  orr r0,r8,#~a" closure-tag)
-    (emit "  add r8,r8,#~a" size)
+    (emit "  orr r0,~a,#~a" heap-register closure-tag)
+    (emit "  add ~a,~a,#~a" heap-register heap-register size)
     (emit "  @ closure}}}")))
 
 ; emit-Tailcall sets up a tail call and then branches
@@ -566,7 +593,7 @@
           (emit-expr (rhs b) si env)
           (emit "  str r0, [sp,#~a]" si)
           (f (cdr b*)
-             (extend-env (lhs b) si new-env)
+             (extend-env (lhs b) (cons "sp" si) new-env)
              (- si (wordsize))))])))
 
 (define (emit-if test conseq altern si env)
@@ -583,7 +610,7 @@
 
 (define (emit-expr expr si env) (match expr
   [`(quote ,c) (emit-move "r0" (immediate-rep c))]
-  [(? symbol? x) (emit "  ldr r0, [sp,#~a] /* ~a */" (lookup x env) (symbol->string x))]
+  [(? symbol? x) (emit-varref x si env)]
   [`(primcall ,pr ,e* ___) (emit-primitive-call `(,pr ,@e*) si env)]
   [`(begin ,e* ___) (emit-begin e* si env)]
   [`(let ,bindings ,body) (emit-let bindings body si env)]
