@@ -1,5 +1,61 @@
 (require "test-driver.ss")
 
+(test-cases "assignment"
+  (test-case
+    ((((lambda (x)
+         (let ([r #f])
+           (lambda (y)
+             (lambda (z)
+               (set! r (+ x (+ y z)))
+               r))))
+       10) 20) 30)
+    "60")
+
+  (test-case
+    ((((lambda (x)
+         (let ([r 0])
+           (set! r (+ r x))
+           (lambda (y)
+             (set! r (+ r y))
+             (lambda (z)
+               (set! r (+ r z))
+               r))))
+       10) 20) 30)
+    "60")
+
+  (test-case
+    (let ([make-acc (lambda ()
+                      (let ([v 0])
+                        (lambda (cmd arg)
+                          (if (= cmd 0)
+                              v
+                              (if (= cmd 1)
+                                  (set! v arg)
+                                  (if (= cmd 2)
+                                      (set! v (arg v))
+                                      #f))))))]
+          [acc-get (lambda (a) (a 0 '()))]
+          [acc-set! (lambda (a n) (a 1 n))]
+          [acc-apply! (lambda (a f) (a 2 f))])
+      (let ([acc-add! (lambda (a n) (acc-apply! a (lambda (v) (+ v n))))]
+            [acc-sub! (lambda (a n) (acc-apply! a (lambda (v) (- v n))))])
+        (let ([a (make-acc)]
+              [b (make-acc)])
+          (acc-add! a 10)
+          (acc-add! b 100)
+          (acc-sub! b (acc-get a))
+          (acc-set! a 40)
+          (- (acc-get b) (acc-get a)))))
+    "50")
+
+
+  )
+
+(test-cases "parsing challenges"
+  (test-case ((lambda (lambda) (lambda lambda)) (lambda (let) 20))
+             "20")
+  )
+
 (test-cases "begin"
   (test-case (begin 0) "0")
   (test-case (begin 0 10) "10"))
@@ -341,6 +397,13 @@
        10) 20) 30)
     "60")
 
+  ; Confuse me with names
+  (test-case
+    ((let ([ten 10])
+       (lambda (x) (+ ten x)))
+     20)
+    "30")
+
   ; This one has recursion, but not in tail position.
   (test-case
     (let ([id-helper (lambda (in out self)
@@ -376,5 +439,5 @@
                                    (+ hundreds tens))))))])
           (f))))
     "720")
-  )
 
+  )

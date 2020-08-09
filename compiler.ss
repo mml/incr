@@ -12,8 +12,10 @@
   (let ([labels (identify-tail-calls
                   (collect-code
                     (uncover-free
-                      (make-begin-explicit
-                        (parse-and-rename prog)))))])
+                      (remove-set!
+                        (uncover-settable
+                          (make-begin-explicit
+                            (parse-and-rename prog)))))))])
     (emit-prologue)
     (emit-Labels labels)
     (emit-epilogue)))

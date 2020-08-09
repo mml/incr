@@ -3,6 +3,7 @@
 (provide uncover-settable)
 
 (require racket/match)
+(require racket/trace)
 (require "../lang/terminals.ss")
 
 (define (uncover-settable expr)
@@ -65,19 +66,21 @@
     '(
       ('9 . '9)
       (((((lambda (x0)
-            (let ([r '#f])
-              (lambda (x1)
-                (lambda (x2)
-                  (set! r (+ x0 (+ x1 x2))))))
-            r)
+              (let ([r '#f])
+                (lambda (x1)
+                  (lambda (x2)
+                    (begin
+                      (set! r (+ x0 (+ x1 x2)))
+                      r)))))
           '10) '20) '30)
        .
        ((((lambda (x0) (settable ()
-            (let ([r '#f]) (settable (r)
-              (lambda (x1) (settable ()
-                (lambda (x2) (settable ()
-                  (set! r (+ x0 (+ x1 x2)))))))))
-            r))
+              (let ([r '#f]) (settable (r)
+                (lambda (x1) (settable ()
+                  (lambda (x2) (settable ()
+                    (begin
+                      (set! r (+ x0 (+ x1 x2)))
+                      r)))))))))
           '10) '20) '30))
       )
     )
