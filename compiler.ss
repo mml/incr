@@ -207,7 +207,8 @@
         [else
           (case (car x)
             [(add1 sub1 integer->char char->integer zero? not null? + - = * <
-              cons car cdr cadr cddr caddr make-vector vector-ref vector-set!) #t]
+              cons car cdr cadr cddr caddr make-vector vector-ref vector-set!)
+             #t]
             [else #f])])
           #f))
 
@@ -580,48 +581,6 @@
     (emit-expr altern si env)
     (emit-label L1)))
 
-(define (emit-code lexpr env) (match lexpr
-  [(list 'code (list formals ___) expr)
-   (let f ([formals formals] [si 0] [env env])
-     (cond [(null? formals) (emit "  str lr,[sp,#~a]" si) ; Save LR
-                            (emit-expr expr (- si (wordsize)) env)
-                            (emit "  ldr lr,[sp,#~a]" si) ; Restore LR
-                            (emit "  bx lr")]
-           [else (f (cdr formals)
-                    (- si (wordsize))
-                    (extend-env (car formals) si env))])
-     )]))
-
-(define (emit-ldef ldef env) (match ldef
-  [(list [list lvars lexprs] ___)
-   (let ([env (append (map (lambda (lvar) (cons lvar (unique-label))) lvars) env)])
-     (let f ([lvars lvars] [lexprs lexprs])
-       (cond [(null? lvars) env]
-             [else
-               (emit "/* label ~a */" (car lvars))
-               (emit-label (lookup (car lvars) env))
-               (emit-code (car lexprs) env)
-               (f (cdr lvars) (cdr lexprs))])))]))
-
-; Right before the jump, the stack should look like this
-;       argN
-;       :
-;       :
-;       arg2
-;       arg1
-; SP -> arg0
-;       old SP
-(define (emit-labelcall expr si env) (match expr
-  [(list 'labelcall lvar args ___)
-   (let f ([args args] [new-si si])
-     (cond [(null? args)
-            (emit "  sub sp,sp,#~a" (- si))
-            (emit "  bl ~a" (lookup lvar env))
-            (emit "  add sp,sp,#~a" (- si))]
-           [else (emit-expr (car args) new-si env)
-                 (emit "  str r0, [sp,#~a]" new-si)
-                 (f (cdr args) (- new-si (wordsize)))]))]))
-
 (define (emit-expr expr si env) (match expr
   [`(quote ,c) (emit-move "r0" (immediate-rep c))]
   [(? symbol? x) (emit "  ldr r0, [sp,#~a] /* ~a */" (lookup x env) (symbol->string x))]
@@ -633,14 +592,3 @@
   [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]
   [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]))
 
-(define (old-emit-expr expr si env)
-  (cond
-    [(immediate? expr)
-     (emit-move "r0" (immediate-rep expr))]
-    [(primcall? expr) (emit-primitive-call expr si env)]
-    [(begin? expr) (emit-begin (begin-exprs expr) si env)]
-    [(let? expr) (emit-let (let-bindings expr) (let-body expr) si env)]
-    [(if? expr) (emit-if (if-test expr) (if-conseq expr) (if-altern expr) si env)]
-    [(variable-ref? expr) (emit "  ldr r0, [sp,#~a]" (lookup expr env))]
-    [(labelcall? expr) (emit-labelcall expr si env)]
-    [else (error 'compile-program "Unsupported expression ~s" (pretty-format expr))]))
