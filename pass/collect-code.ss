@@ -60,3 +60,21 @@
               (append elabels flabels)))]
   ))
 
+(module+ test
+  (require rackunit)
+
+  (define cases
+    '(
+      ('9 . (labels () '9))
+      )
+    )
+ 
+  (let loop ([cases cases])
+    (cond
+      [(null? cases)
+       #t]
+      [else
+        (let ([case (car cases)])
+          (check-equal? (collect-code (car case)) (cdr case))
+          (loop (cdr cases)))]))
+  )

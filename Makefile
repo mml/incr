@@ -4,10 +4,13 @@ OBJECT = $(WORKDIR)/x-test-program.o
 ASSEMBLY = $(WORKDIR)/x-test-program.s
 COMPILE_SCHEME = compiler.ss test-driver.ss
 
-.PHONY: test debug dump raco cat edit clean
+.PHONY: test unit debug dump raco cat edit clean
 
 test: raco $(WORKDIR)
 	racket -f tests.ss
+
+unit:
+	raco test $(COMPILE_SCHEME) lang/*.ss pass/*.ss
 
 $(WORKDIR):
 	mkdir -p $@

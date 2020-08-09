@@ -9,6 +9,13 @@
 (define (parse-and-rename expr)
   (Expr expr primitives))
 
+(module+ test
+  (require rackunit)
+
+  (check-equal? (parse-and-rename 9) ''9)
+  (check-equal? (parse-and-rename #t) ''#t)
+  )
+
 (define unique-variable
   (let ()
     (define i 0)
