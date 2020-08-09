@@ -173,6 +173,12 @@
 ; r12 should be treated as a scratch register... it could be altered by long
 ; jumps, in which case it's called the intra-procedure-call scratch register
 ; (IP)
+; This makes r12 a good choice for the closure register, because it's a
+; register we expect to be left alone only within a Scheme procedure.
+; Intra-procedure jumps in our generated code won't disturb it, but calls to
+; foreign functions and to other Scheme procedures *could*.  But in those
+; cases, we already plan on restoring the closure-register after the subroutine
+; returns.
 
 ;; Callee-saved
 ; r4-r8,r10 are variable registers also called v1-v5,v7
@@ -185,8 +191,8 @@
 ; r14 is the link register (LR)
 ; r15 is the program counter (PC)
 
-(define heap-register "v5")
-(define closure-register "v7")
+(define heap-register "v5")     ; chosen arbitrarily
+(define closure-register "IP") ; see rationale above
 ;;; Scheme procedure calls
 ; Our calling convention expects
 ; sp-4 to be empty (we'll save the LR there)
