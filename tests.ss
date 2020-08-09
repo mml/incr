@@ -1,12 +1,5 @@
 (require "test-driver.ss")
 
-(test-cases "closures"
-  (test-case
-    (let ([incr (lambda (x) (add1 x))])
-      (let ([id (lambda (x) (sub1 (incr x)))])
-        (id 10)))
-    "10"))
-
 (test-cases "begin"
   (test-case (begin 0) "0")
   (test-case (begin 0 10) "10"))
@@ -300,6 +293,12 @@
                             (self (- n 2) self)))))])
       (fib 33 fib))
     "5702887")
+  (test-case
+    (let ([add (lambda (a b) (+ a b))])
+      (let ([c 10] [d 20] [e 30] [f 40] [g 50] [h 60] [i 70] [j 80])
+        (* (add (add (add c d) e) f)
+           (add (add (add g h) i) j))))
+    "26000")
   )
 
 (test-cases "tail calls"
@@ -314,4 +313,68 @@
                     (helper n 0 helper))])
         (fxid 5000000 fxid-helper)))
     "5000000")
+
+  (test-case
+    (let ([add (lambda (a b) (+ a b))])
+      (let ([f (lambda (add)
+                 (let ([c 10] [d 20] [e 30] [f 40] [g 50] [h 60] [i 70] [j 80])
+                   (* (add (add (add c d) e) f)
+                      (add (add (add g h) i) j))))])
+        (f add)))
+    "26000")
   )
+
+(test-cases "closures"
+  ; This closes over variables but it has no recursion and no tail calls.
+  (test-case
+    (let ([incr (lambda (x) (add1 x))])
+      (let ([id (lambda (x) (sub1 (incr x)))])
+        (id 10)))
+    "10")
+
+  ; Close over distant variables
+  (test-case
+    ((((lambda (x)
+         (lambda (y)
+           (lambda (z)
+             (+ z (+ x y)))))
+       10) 20) 30)
+    "60")
+
+  ; This one has recursion, but not in tail position.
+  (test-case
+    (let ([id-helper (lambda (in out self)
+                       (if (zero? in)
+                           out
+                           (if (= 1 in)
+                               (add1 out)
+                               (add1 (self
+                                       (- in 2)
+                                       (+ out 1)
+                                       self)))))])
+      (let ([id (lambda (x)
+                  (id-helper x 0 id-helper))])
+        (id 10)))
+    "10")
+
+  ; This has only non-recursive tail calls
+  (test-case
+    (let ([incr (lambda (x c) (c (add1 x)))])
+      (let ([id (lambda (x)
+                  (incr x (lambda (x) (sub1 x))))])
+        (id 10)))
+    "10")
+  
+  ; Attempt to clobber closed-over variables.
+  (test-case
+    (let ([a 10] [b 100])
+      (let ([*a (lambda (x c) (c (* a x)))]
+            [*b (lambda (x c) (c (* b x)))])
+        (let ([f (lambda ()
+                   (*b 7 (lambda (hundreds)
+                           (*a 2 (lambda (tens)
+                                   (+ hundreds tens))))))])
+          (f))))
+    "720")
+  )
+

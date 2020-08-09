@@ -38,19 +38,36 @@
 
 ; emit-Code emits a subroutine
 (define (emit-Code code env) (match code
-  [`(code (,x* ___) () ,body) ; free variables not implemented yet
-    (emit "  str lr,[sp,#~a]" link-register-index); save LR
-    (let loop ([x* x*] [arg-count 0] [arg-index arg0-index] [env env])
-      (cond [(null? x*)
-             (emit-expr body arg-index env)]
-            [else
-              (loop (cdr x*) (add1 arg-count) (- arg-index (wordsize))
-                    (extend-env (car x*)
-                                (cons "sp" arg-index)
-                                env))]))
+  [`(code (,x* ___) (,y* ___) ,body) ; free variables not implemented yet
+    (emit "  str lr,[sp,#~a]" link-register-index (// "save LR"))
+    (emit "  ldr ~a, [sp,#~a]" closure-register closure-index
+          (// "load closure address"))
+    (let-values ([(si env) (arg-env x* env)])
+      (let ([env (clovar-env y* env)])
+        (emit-expr body si env)))
     (emit "  ldr lr,[sp,#~a]" link-register-index) ; restore LR
     (emit "  bx lr")
     ]))
+
+(define (arg-env x* env)
+  (let loop ([x* x*] [arg-count 0] [arg-index arg0-index] [env env])
+    (cond [(null? x*)
+           (values arg-index env)]
+          [else
+            (loop (cdr x*)
+                  (add1 arg-count)
+                  (- arg-index (wordsize))
+                  (extend-env (car x*) (cons "sp" arg-index) env))])))
+
+(define (clovar-env y* env)
+  (let loop ([y* y*] [clovar-count 0] [clovar-index clovar0-index] [env env])
+    (cond [(null? y*)
+           env]
+          [else
+            (loop (cdr y*)
+                  (add1 clovar-count)
+                  (+ clovar-index (wordsize))
+                  (extend-env (car y*) (cons closure-register clovar-index) env))])))
 
 (define (emit-scheme-entry expr env)
   (emit-begin-function "scheme_entry")
@@ -67,9 +84,11 @@
   (emit ".ident \"mml scheme compiler\"")
   (emit ".section .note.GNU-stack,\"\",%progbits"))
 
-(define (emit-varref x si env)
+(define (emit-varref x env)
   (let ([loc (lookup x env)])
-    (emit "  ldr r0,[~a,#~a]" (car loc) (cdr loc) (// "~a" x))))
+    (if loc
+        (emit "  ldr r0,[~a,#~a]" (car loc) (cdr loc) (// "~a" x))
+        (error 'compile-program "Internal error: unbound variable ~a" x))))
 
 (define compile-port
   (make-parameter
@@ -127,7 +146,9 @@
 (define (extend-env name index env)
   (cons (cons name index) env))
 (define (lookup x env)
-  (cdr (assoc x env)))
+  (cond
+    [(assq x env) => cdr]
+    [else #f]))
 
 ;;; Fixnums end in #b00.
 ;;; All other integral types end in #b1111
@@ -174,6 +195,7 @@
 (define link-register-index (* -1 (wordsize)))
 (define closure-index (* -2 (wordsize)))
 (define arg0-index (* -3 (wordsize)))
+(define clovar0-index (wordsize))
 (define (arg-index arg-count)
   (- arg0-index (* (wordsize) arg-count)))
 
@@ -368,7 +390,7 @@
     (emit "  str r0,[~a]" heap-register)      ; write pointer
     (let loop ([free* free*] [index (wordsize)])
       (unless (null? free*)
-        (emit "  ldr r0, [sp,#~a]" (lookup (car free*) env))
+        (emit-varref (car free*) env)
         (emit "  str r0,[~a,#~a]" heap-register index)
         (loop (cdr free*) (+ index (wordsize)))))
     (emit "  orr r0,~a,#~a" heap-register closure-tag)
@@ -383,6 +405,7 @@
   ; the LR on the stack.  Then we can branch to there instead.
   (emit "  @ tailcall")
   (emit-expr f si env) ; r0 = closure
+  (emit "  BIC r0,r0,#~a" closure-tag      (// "clear tag bits"))
   (emit "  str r0, [sp,#~a]" closure-index (// "put closure on stack"))
   ; We now have to evaluate all arguments and gradually add their values to the stack.
   (let loop ([e* e*] [arg-index arg0-index] [arg-count 0] [si arg0-index])
@@ -402,23 +425,26 @@
 (define (emit-Funcall f e* si env)
   (emit "  @ funcall")
   (emit-expr f si env) ; r0 = closure
-  ; We now have to evaluate all arguments and gradually add their values to the stack.
-  (with-saved-registers [si ("r4")] ; Last thing we're saving on the stack
-    (let ([psi si]) ; procedure SI
-      (emit "  str r0, [sp,#~a]" (+ psi closure-index) (// "put closure on stack"))
-      (emit "  BIC r4,r0,#~a" closure-tag              (// "zero out tag"))
-      (emit "  LDR r4,[r4]"                            (// "load branch target"))
-      (let loop ([e* e*] [arg-index (+ psi arg0-index)] [arg-count 0] [si (+ psi arg0-index)])
-        (cond
-          [(null? e*)
-           (emit "  sub sp,sp,#~a /* set procedure SP */" (- psi))
-           (emit "  blx r4")
-           (emit "  add sp,sp,#~a /* restore SP */" (- psi))]
-          [else
-            (emit-expr (car e*) si env)
-            (emit "  str r0, [sp,#~a] /* store arg ~a */"
-                  arg-index arg-count)
-            (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))])))))
+  (let ([psi si]) ; procedure SI
+    (emit "  BIC r0,r0,#~a" closure-tag              (// "clear tag bits"))
+    (emit "  str r0, [sp,#~a]" (+ psi closure-index) (// "put closure on stack"))
+    (let loop ([e* e*] [arg-index (+ psi arg0-index)] [arg-count 0] [si (+ psi arg0-index)])
+      (cond
+        [(null? e*)
+         (emit "  ldr ~a, [sp,#~a]" closure-register (+ psi closure-index)
+               (// "load closure address from stack"))
+         (emit "  ldr ~a, [~a]" closure-register closure-register
+               (// "dereference code pointer"))
+         (emit "  sub sp,sp,#~a" (- psi) (// "set procedure SP"))
+         (emit "  blx ~a" closure-register)
+         (emit "  add sp,sp,#~a /* restore SP */" (- psi))
+         (emit "  ldr ~a, [sp,#~a]" closure-register closure-index
+               (// "restore closure address"))]
+        [else
+          (emit-expr (car e*) si env)
+          (emit "  str r0, [sp,#~a] /* store arg ~a */"
+                arg-index arg-count)
+          (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))]))))
 
 (define (emit-allocation-primcall op expr si env)
   (case op
@@ -610,7 +636,7 @@
 
 (define (emit-expr expr si env) (match expr
   [`(quote ,c) (emit-move "r0" (immediate-rep c))]
-  [(? symbol? x) (emit-varref x si env)]
+  [(? symbol? x) (emit-varref x env)]
   [`(primcall ,pr ,e* ___) (emit-primitive-call `(,pr ,@e*) si env)]
   [`(begin ,e* ___) (emit-begin e* si env)]
   [`(let ,bindings ,body) (emit-let bindings body si env)]
