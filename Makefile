@@ -10,7 +10,7 @@ test: raco $(WORKDIR)
 	racket -f tests.ss
 
 unit:
-	raco test $(COMPILE_SCHEME) lang/*.ss pass/*.ss
+	raco test --table --fresh-user --deps -x -j 20 $(COMPILE_SCHEME) lang/*.ss pass/*.ss
 
 $(WORKDIR):
 	mkdir -p $@
