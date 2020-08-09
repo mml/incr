@@ -38,7 +38,7 @@
   [`(lambda (,x* ___) ,body)
     (let-values ([(body free) (Expr body)])
       (let ([free (set-subtract free (apply set x*))])
-        (values `(lambda ,x* (free (,@(set->list free)) ,body)) (set))))]
+        (values `(lambda ,x* (free (,@(set->list free)) ,body)) free)))]
   [`(if ,test ,conseq ,altern)
     (let-values ([(test tfree) (Expr test)]
                  [(conseq cfree) (Expr conseq)]
@@ -50,3 +50,33 @@
       (values e* (apply set-union free*)))]
   ))
 
+(module+ test
+  (require rackunit)
+
+  (define cases
+    '(
+      ('9 . '9)
+      (((((lambda (x0)
+            (lambda (x1)
+              (lambda (x2)
+                (+ x2 (+ x0 x1)))))
+          '10) '20) '30)
+       .
+       ((((lambda (x0) (free ()
+            (lambda (x1) (free (x0)
+              (lambda (x2) (free (x1 x0)
+                (+ x2 (+ x0 x1))))))))
+          '10) '20) '30))
+      )
+    )
+ 
+  (let loop ([cases cases])
+    (cond
+      [(null? cases)
+       #t]
+      [else
+        (let ([case (car cases)])
+          (check-equal? (uncover-free (car case)) (cdr case))
+          (loop (cdr cases)))]))
+
+)
