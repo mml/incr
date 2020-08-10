@@ -45,6 +45,15 @@
                 (cons (val 3)
                       (cons (val 5) '()))))))
     "(2 4 #f)")
+
+  (test-case
+    (letrec ([len (lambda (l)
+                    (cond
+                      [(null? l) 0]
+                      [else (add1 (len (cdr l)))]))])
+      (len (list 1 2 3 4 5 6)))
+    "6")
+
   )
 
 (test-cases "assignment"
