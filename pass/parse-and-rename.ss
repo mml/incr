@@ -127,6 +127,8 @@
          [else (error 'parse-and-rename "undefined variable ~a" x)])]
   [`(and ,expr* ___)
     (And expr* env)]
+  [`(cond ,clause* __1)
+    (Cond clause* env)]
   [`(begin ,expr* __1)
     `(begin ,@(Expr* expr* env))]
   [`(let ([,x* ,e*] ___) ,body* __1) 
