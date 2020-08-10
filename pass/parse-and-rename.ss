@@ -135,6 +135,11 @@
                ,@body*))
           env)))
 
+(define (Let* binding* body* env) (match binding*
+  ['() `(let () ,@(Expr* body* env))]
+  [`([,x ,e]) (Expr `(let ([,x ,e]) ,@body*) env)]
+  [`([,x ,e] ,binding* __1) (Expr `(let ([,x ,e])
+                                  (let* ,binding* ,@body*)) env)]))
 
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
@@ -152,6 +157,8 @@
     (List expr* env)]
   [`(letrec ([,x* ,e*] ___) ,body* __1)
     (Letrec x* e* body* env)]
+  [`(let* ,binding* ,body* __1)
+    (Let* binding* body* env)]
   [`(let ([,x* ,e*] ___) ,body* __1) 
     (let* ([ux* (map unique-variable x*)]
            [e* (Expr* e* env)]
