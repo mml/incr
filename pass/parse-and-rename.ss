@@ -106,6 +106,21 @@
                              (begin '())))))
   )
 
+(define (Or expr* env) (match expr*
+  ['() `'#f]
+  [`(,test) (Expr test env)]
+  [`(,test ,test* __1) 
+    (let ([t (tmp)])
+      `(let ([,t ,(Expr test env)])
+         (if ,t ,t ,(Or test* env))))]))
+
+(module+ test
+  (check-equal? (Or '() primitives) ''#f)
+  (check-equal? (Or '(1) primitives) ''1)
+  (check-equal? (Or '(1 2) primitives)
+                '(let ([tmp3 '1])
+                   (if tmp3 tmp3 '2))))
+
 (define (And expr* env) (match expr*
   ['() `'#t]
   [`(,test) (Expr test env)]
@@ -149,6 +164,8 @@
          [else (error 'parse-and-rename "undefined variable ~a" x)])]
   [`(and ,expr* ___)
     (And expr* env)]
+  [`(or ,expr* ___)
+    (Or expr* env)]
   [`(cond ,clause* __1)
     (Cond clause* env)]
   [`(begin ,expr* __1)
