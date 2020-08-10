@@ -106,7 +106,6 @@
                              (begin '())))))
   )
 
-
 (define (And expr* env) (match expr*
   ['() `'#t]
   [`(,test) (Expr test env)]
@@ -118,6 +117,10 @@
   (check-equal? (And '(1 2) primitives) '(if '1 '2 '#f))
   (check-equal? (And '(1 2 3) primitives) '(if '1 (if '2 '3 '#f) '#f))
   )
+
+(define (List expr* env) (match expr*
+  ['() ''()]
+  [`(,hd ,tl* ___) `(cons ,(Expr hd env) ,(List tl* env))]))
 
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
@@ -131,6 +134,8 @@
     (Cond clause* env)]
   [`(begin ,expr* __1)
     `(begin ,@(Expr* expr* env))]
+  [`(list ,expr* ___)
+    (List expr* env)]
   [`(let ([,x* ,e*] ___) ,body* __1) 
     (let* ([ux* (map unique-variable x*)]
            [e* (Expr* e* env)]
