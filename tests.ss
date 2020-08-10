@@ -7,6 +7,13 @@
   (test-case (and 1 2 3) "3")
   (test-case (and 1 2 3 #f) "#f")
 
+  (test-case (or) "#f")
+  (test-case (or 1) "1")
+  (test-case (or #f 2) "2")
+  (test-case (or #f 2 3) "2")
+  (test-case (or #f #f 3) "3")
+  (test-case (or #f #f #f 4) "4")
+
   (test-case
     (let ([sum (lambda (x y sum)
                  (cond
