@@ -1,5 +1,12 @@
 (require "test-driver.ss")
 
+(test-cases "macro expansion"
+  (test-case (and) "#t")
+  (test-case (and 1) "1")
+  (test-case (and 1 2) "2")
+  (test-case (and 1 2 3) "3")
+  (test-case (and 1 2 3 #f) "#f")
+  )
 (test-cases "assignment"
   (test-case
     ((((lambda (x)
