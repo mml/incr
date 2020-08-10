@@ -54,6 +54,13 @@
       (len (list 1 2 3 4 5 6)))
     "6")
 
+  (test-case
+    (let* ([a 10]
+           [b (+ a 20)]
+           [c (* b b)])
+      c)
+    "900")
+
   )
 
 (test-cases "assignment"
