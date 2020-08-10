@@ -122,6 +122,20 @@
   ['() ''()]
   [`(,hd ,tl* ___) `(cons ,(Expr hd env) ,(List tl* env))]))
 
+(define (Letrec x* e* body* env)
+  (let* ([xbindings (map (lambda (x) (list x #f)) x*)]
+         [t* (map (lambda (x) (tmp)) x*)]
+         [tbindings (map (lambda (t e) (list t e)) t* e*)]
+         [set-expr* (map (lambda (x t)
+                           `(set! ,x ,t))
+                         x* t*)])
+    (Expr `(let ,xbindings
+             (let ,tbindings
+               ,@set-expr*
+               ,@body*))
+          env)))
+
+
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
   [`(quote ,(? immediate? c)) expr]
@@ -136,6 +150,8 @@
     `(begin ,@(Expr* expr* env))]
   [`(list ,expr* ___)
     (List expr* env)]
+  [`(letrec ([,x* ,e*] ___) ,body* __1)
+    (Letrec x* e* body* env)]
   [`(let ([,x* ,e*] ___) ,body* __1) 
     (let* ([ux* (map unique-variable x*)]
            [e* (Expr* e* env)]
