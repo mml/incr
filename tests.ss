@@ -119,6 +119,13 @@
     "50")
 
 
+  (test-case
+    (let ([a 10] [b 20])
+      (set! a (begin
+                (set! b 1)
+                2))
+      (+ a b))
+    "3")
   )
 
 (test-cases "parsing challenges"
