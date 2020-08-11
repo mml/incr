@@ -1,5 +1,27 @@
 (require "test-driver.ss")
 
+(test-cases "equivalence predicates"
+  (test-case
+    (letrec
+      ([objects (list #f #t '())]
+       [pass-self-helper (lambda (objects)
+                           (cond
+                             [(null? objects) #t]
+                             [(and (eq? (car objects)
+                                        (car objects))
+                                   (pass-self-helper (cdr objects)))]))]
+       [pass-others-helper (lambda (hd tl)
+                             (cond
+                               [(null? tl) #t]
+                               [(and (not (eq? hd (car tl)))
+                                     (not (eq? (car tl) hd))
+                                     (pass-others-helper (car tl) (cdr tl)))]))]
+       [pass-self (lambda () (pass-self-helper objects))]
+       [pass-others (lambda () (pass-others-helper (car objects) (cdr objects)))])
+      (and (pass-self) (pass-others)))
+  "#t")
+  )
+
 (test-cases "macro expansion"
   (test-case (and) "#t")
   (test-case (and 1) "1")
