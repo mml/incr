@@ -2,6 +2,7 @@
 
 (test-cases "equivalence predicates"
   (test-case
+    ; Defined by Scheme semantics
     (letrec
       ([objects (list #f #t '())]
        [pass-self-helper (lambda (objects)
@@ -19,7 +20,18 @@
        [pass-self (lambda () (pass-self-helper objects))]
        [pass-others (lambda () (pass-others-helper (car objects) (cdr objects)))])
       (and (pass-self) (pass-others)))
-  "#t")
+    "#t")
+  (test-case
+    (letrec ([p (lambda (x) x)])
+      (eq? p p))
+    "#t")
+  (test-case
+    (eq? (list 1) (list 1))
+    "#f")
+  #;(test-case
+    (let ([f (lambda () '(1 . 2))])
+      (eq? (f) (f)))
+    "#t")
   )
 
 (test-cases "macro expansion"

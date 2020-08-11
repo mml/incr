@@ -17,7 +17,7 @@
   '(add1 sub1 integer->char char->integer zero? not null? car cdr cadr cddr caddr))
 
 (define binary-primitives
-  '(+ - = * < cons make-vector vector-ref vector-set! set!))
+  '(eq? eqv? equal? + - = * < cons make-vector vector-ref vector-set! set!))
 
 (define primitives
   (append (map (lambda (pr) (cons pr 1)) unary-primitives)

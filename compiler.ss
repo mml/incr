@@ -542,6 +542,14 @@
     [(char->integer)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "asr r0,r0,#~a" (- char-shift fixnum-shift))]
+    [(eq?)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  str r0, [sp,#~a]" si)
+     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
+     (emit "  ldr r1, [sp,#~a]" si)
+     (emit "  cmp r0,r1")
+     (emit-move32 'eq "r0" (immediate-rep #t))
+     (emit-move32 'ne "r0" (immediate-rep #f))]
     [(+)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
