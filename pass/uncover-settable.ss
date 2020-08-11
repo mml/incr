@@ -24,8 +24,6 @@
 
 (define (Expr expr) (match expr
   [`(quote ,c) (values expr (set))]
-  [`(set! ,x ,e) (values expr (set x))]
-  [(? primitive? pr) (values pr (set))]
   [(? variable? x) (values expr (set))]
   [`(begin ,expr* __1)
     (let-values ([(expr* settable*) (Expr* expr*)])
@@ -54,9 +52,15 @@
                  [(altern asettable) (Expr altern)])
       (values `(if ,test ,conseq ,altern)
               (apply set-union (list tsettable csettable asettable))))]
-  [`(,e* __1)
+  [`(funcall ,e* __1)
     (let-values ([(e* settable*) (Expr* e*)])
-      (values e* (apply set-union settable*)))]
+      (values `(funcall ,@e*) (apply set-union settable*)))]
+  [`(primcall set! ,x ,e)
+    (let-values ([(e settable) (Expr e)])
+      (values `(primcall set! ,x ,e) (set-union settable (set x))))]
+  [`(primcall ,pr ,e* ___)
+    (let-values ([(e* settable*) (Expr* e*)])
+      (values `(primcall ,pr ,@e*) (apply set-union settable*)))]
   ))
 
 (module+ test
@@ -65,21 +69,27 @@
   (define cases
     '(
       ('9 . '9)
-      (((((lambda (x0)
+      ((funcall
+         (funcall
+           (funcall
+             (lambda (x0)
               (let ([r '#f])
                 (lambda (x1)
                   (lambda (x2)
                     (begin
-                      (set! r (+ x0 (+ x1 x2)))
+                      (primcall set! r (primcall + x0 (primcall + x1 x2)))
                       r)))))
           '10) '20) '30)
        .
-       ((((lambda (x0) (settable ()
+       (funcall
+         (funcall
+           (funcall
+             (lambda (x0) (settable ()
               (let ([r '#f]) (settable (r)
                 (lambda (x1) (settable ()
                   (lambda (x2) (settable ()
                     (begin
-                      (set! r (+ x0 (+ x1 x2)))
+                      (primcall set! r (primcall + x0 (primcall + x1 x2)))
                       r)))))))))
           '10) '20) '30))
       )

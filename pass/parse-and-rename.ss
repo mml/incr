@@ -30,10 +30,10 @@
     (let ([x (cdr as)])
       (cond
         [(symbol? x) 
-         `(,x ,@(Expr* e* env))]
+         `(funcall ,x ,@(Expr* e* env))]
         [(number? x)
          (if (= x (length e*))
-             `(,e0 ,@(Expr* e* env))
+             `(primcall ,e0 ,@(Expr* e* env))
              (error 'parse-and-rename "arity mismatch: ~a expects ~a got ~a"
                     e0 x (length e*)))]
         [else
@@ -47,12 +47,12 @@
   [`([,test => ,result])
     (let ([t (tmp)])
       `(let ([,t ,(Expr test env)])
-         (if ,t (,(Expr result env) ,t) '#f)))] ; altern unspecified
+         (if ,t (funcall ,(Expr result env) ,t) '#f)))] ; altern unspecified
   [`([,test => ,result] ,clause* __1)
     (let ([t (tmp)])
       `(let ([,t ,(Expr test env)])
          (if ,t
-             (,(Expr result env) ,t)
+             (funcall ,(Expr result env) ,t)
              ,(Cond clause* env))))]
   [`([,test]) (Expr test env)]
   [`([,test] ,clause* __1)
@@ -75,33 +75,33 @@
   (check-equal? (Cond '([else 1 2 3]) primitives)
                 '(begin '1 '2 '3))
   (check-equal? (Cond '([(null? '()) => (lambda (x) 10)]) primitives)
-                '(let ([tmp0 (null? '())])
-                   (if tmp0 ((lambda (x.1) '10) tmp0) '#f)))
+                '(let ([tmp0 (primcall null? '())])
+                   (if tmp0 (funcall (lambda (x.1) '10) tmp0) '#f)))
   (check-equal? (Cond '([(null? '()) => (lambda (x) 10)]
                         [else 1 2 3]) primitives)
-                '(let ([tmp1 (null? '())])
+                '(let ([tmp1 (primcall null? '())])
                    (if tmp1
-                       ((lambda (x.2) '10) tmp1)
+                       (funcall (lambda (x.2) '10) tmp1)
                        (begin '1 '2 '3))))
   (check-equal? (Cond '([(zero? (add1 0))]) primitives)
-                '(zero? (add1 '0)))
+                '(primcall zero? (primcall add1 '0)))
   (check-equal? (Cond '([(zero? (add1 0))]
                         [else 1 2 3]) primitives)
-                '(let ([tmp2 (zero? (add1 '0))])
+                '(let ([tmp2 (primcall zero? (primcall add1 '0))])
                    (if tmp2
                        tmp2
                        (begin '1 '2 '3))))
   (check-equal? (Cond '([(zero? 0) 1 2 3]) primitives)
-                '(if (zero? '0) (begin '1 '2 '3) '#f))
+                '(if (primcall zero? '0) (begin '1 '2 '3) '#f))
   (check-equal? (Cond '([(zero? 0) 1 2 3]
                         [(zero? 1) 4 5 6]
                         [(zero? 2) 7 8 9]
                         [else '()]) primitives)
-                '(if (zero? '0)
+                '(if (primcall zero? '0)
                      (begin '1 '2 '3)
-                     (if (zero? '1)
+                     (if (primcall zero? '1)
                          (begin '4 '5 '6)
-                         (if (zero? '2)
+                         (if (primcall zero? '2)
                              (begin '7 '8 '9)
                              (begin '())))))
   )
@@ -135,7 +135,7 @@
 
 (define (List expr* env) (match expr*
   ['() ''()]
-  [`(,hd ,tl* ___) `(cons ,(Expr hd env) ,(List tl* env))]))
+  [`(,hd ,tl* ___) `(primcall cons ,(Expr hd env) ,(List tl* env))]))
 
 (define (Letrec x* e* body* env)
   (let* ([xbindings (map (lambda (x) (list x #f)) x*)]
@@ -191,5 +191,5 @@
   [`(,(? symbol? e0) ,e* ___)
     (App e0 e* env)]
   [`(,e0 ,e* ___)
-    `(,(Expr e0 env) ,@(Expr* e* env))]
+    `(funcall ,(Expr e0 env) ,@(Expr* e* env))]
   ))

@@ -24,20 +24,19 @@
       [(null? t*)
        (reverse rbinding*)]
       [else
-        (loop (cons `[,(car t*) (make-vector '1 ,(car x*))] rbinding*)
+        (loop (cons
+                `(,(car t*)
+                   (primcall make-vector '1 ,(car x*)))
+                rbinding*)
               (cdr t*) (cdr x*))])))
 
 (define (Expr expr env) (match expr
   [`(quote ,c) expr]
-  [`(set! ,x ,e)
-    (let ([t (cdr (assq x env))])
-      `(vector-set! ,t '0 ,(Expr e env)))]
-  [(? primitive? pr) expr]
   [(? variable? x)
    (cond
      [(assq x env) =>
       (lambda (as)
-        `(vector-ref ,(cdr as) '0))]
+        `(primcall vector-ref ,(cdr as) '0))]
      [else expr])]
   [`(settable (,x* ___) ,e)
     (let* ([t* (map unique-box x*)]
@@ -52,6 +51,11 @@
     `(lambda (,@x*) ,(Expr body env))]
   [`(if ,test ,conseq ,altern)
     `(if ,(Expr test env) ,(Expr conseq env) ,(Expr altern env))]
-  [`(,e* __1)
-    `(,@(Expr* e* env))]
+  [`(primcall set! ,x ,e)
+    (let ([t (cdr (assq x env))])
+      `(primcall vector-set! ,t '0 ,(Expr e env)))]
+  [`(primcall ,pr ,e* ___)
+    `(primcall ,pr ,@(Expr* e* env))]
+  [`(funcall ,e* __1)
+    `(funcall ,@(Expr* e* env))]
   ))

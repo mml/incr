@@ -29,7 +29,6 @@
 
 (define (Expr expr) (match expr
   [`(quote ,c) (values expr '())]
-  [(? primitive? pr) (values pr '())]
   [(? variable? x) (values x '())]
   [`(begin ,expr* __1)
     (let-values ([(expr* labels) (Expr* expr*)])
@@ -50,10 +49,10 @@
                  [(altern alabels) (Expr altern)])
       (values `(if ,test ,conseq ,altern)
               (append tlabels clabels alabels)))]
-  [`(,(? primitive? pr) ,e* ___)
+  [`(primcall ,pr ,e* ___)
     (let-values ([(e* labels) (Expr* e*)])
       (values `(primcall ,pr ,@e*) labels))]
-  [`(,f ,e* ___)
+  [`(funcall ,f ,e* ___)
     (let-values ([(f flabels) (Expr f)]
                  [(e* elabels) (Expr* e*)])
       (values `(funcall ,f ,@e*)

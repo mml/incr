@@ -23,7 +23,6 @@
 
 (define (Expr expr) (match expr
   [`(quote ,c) (values expr (set))]
-  [(? primitive? pr) (values pr (set))]
   [(? variable? x) (values x (set x))]
   [`(begin ,expr* __1)
     (let-values ([(expr* free*) (Expr* expr*)])
@@ -45,9 +44,12 @@
                  [(altern afree) (Expr altern)])
       (values `(if ,test ,conseq ,altern)
               (apply set-union (list tfree cfree afree))))]
-  [`(,e* __1)
+  [`(primcall ,pr ,e* ___)
     (let-values ([(e* free*) (Expr* e*)])
-      (values e* (apply set-union free*)))]
+      (values `(primcall ,pr ,@e*) (apply set-union free*)))]
+  [`(funcall ,e* __1)
+    (let-values ([(e* free*) (Expr* e*)])
+      (values `(funcall ,@e*) (apply set-union free*)))]
   ))
 
 (module+ test
@@ -56,17 +58,23 @@
   (define cases
     '(
       ('9 . '9)
-      (((((lambda (x0)
-            (lambda (x1)
-              (lambda (x2)
-                (+ x2 (+ x0 x1)))))
-          '10) '20) '30)
+      ((funcall
+         (funcall
+           (funcall
+             (lambda (x0)
+               (lambda (x1)
+                 (lambda (x2)
+                   (primcall + x2 (primcall + x0 x1)))))
+             '10) '20) '30)
        .
-       ((((lambda (x0) (free ()
-            (lambda (x1) (free (x0)
-              (lambda (x2) (free (x1 x0)
-                (+ x2 (+ x0 x1))))))))
-          '10) '20) '30))
+       (funcall
+         (funcall
+           (funcall
+             (lambda (x0) (free ()
+               (lambda (x1) (free (x0)
+                 (lambda (x2) (free (x1 x0)
+                   (primcall + x2 (primcall + x0 x1))))))))
+             '10) '20) '30))
       )
     )
  
