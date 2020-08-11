@@ -193,8 +193,8 @@
 ; r14 is the link register (LR)
 ; r15 is the program counter (PC)
 
-(define heap-register "v5")     ; chosen arbitrarily
-(define closure-register "IP") ; see rationale above
+(define heap-register "r8")     ; aka v5 chosen arbitrarily
+(define closure-register "r12") ; aka r12 see rationale above
 ;;; Scheme procedure calls
 ; Our calling convention expects
 ; sp-4 to be empty (we'll save the LR there)
@@ -394,12 +394,12 @@
          [size (* (wordsize) size)]           ; in words
          [size (bitwise-and -8 (+ 11 size))]) ; align to next dword
     (emit "  @ closure ~a ~a{{{" label free*)
-    (emit "  ldr r0,=~a" (lookup label env))  ; pseudo-instruction
-    (emit "  str r0,[~a]" heap-register)      ; write pointer
+    (emit "  ldr r0,=~a" (lookup label env)   (// "load label in r0")) 
+    (emit "  str r0,[~a]" heap-register       (// "write pointer into closure object"))
     (let loop ([free* free*] [index (wordsize)])
       (unless (null? free*)
         (emit-varref (car free*) env)
-        (emit "  str r0,[~a,#~a]" heap-register index)
+        (emit "  str r0,[~a,#~a]" heap-register index (// "free variable ~a" (car free*)))
         (loop (cdr free*) (+ index (wordsize)))))
     (emit "  orr r0,~a,#~a" heap-register closure-tag)
     (emit "  add ~a,~a,#~a" heap-register heap-register size)
@@ -470,6 +470,7 @@
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  lsr r0, #~a" fixnum-shift (// "fixnum->int"))
      (emit "  str r0, [sp,#~a]" si      (// "save size on stack"))
+     (emit "  lsl r0, #~a" (wordsize)   (// "<< wordsize"))
      (emit "  add r0, r0, #11"          (// "align size to next"))
      (emit "  and r0, r0, #-8"          (// "   object boundary"))
      (emit "  str ~a, [sp,#~a]" heap-register (- si (wordsize))) ; save address on stack
@@ -494,16 +495,17 @@
 (define (emit-side-effect-primcall op expr si env)
   (case op
     [(vector-set!) ; vec n obj
+     (emit "/* vector-set!{{{ */")
      (with-saved-registers [si ("r4" "r5")]
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "  sub r0, #~a" vector-tag)
-       (emit "  mov r4,r0") ; address in r4
+       (emit "  BIC r4,r0, #~a" vector-tag      (// "clear vector tag"))
        (emit-expr (primcall-operand2 expr) si env)
-       (emit "  LSR r5,r0,#~a" fixnum-shift) ; fixnum->int (and move to r5)
-       (emit "  add r5,r5,#1") ; skip over vector size
-       (emit "  LSL r5,r5,#~a" (wordsize-shift)) ; multiply by wordsize
+       (emit "  LSR r5,r0,#~a" fixnum-shift     (// "offset fixnum->int"))
+       (emit "  add r5,r5,#1"                   (// "skip over vector size"))
+       (emit "  LSL r5,r5,#~a" (wordsize-shift) (// "multiply by wordsize"))
        (emit-expr (primcall-operand3 expr) si env) ; value in r0
-       (emit "  str r0, [r4,r5]"))]
+       (emit "  str r0, [r4,r5]"                (// "dereference and store"))
+       (emit "/* }}}vector-set! */"))]
     [else (error 'compile-program
                  "Unsupported primcall ~s in ~s" (pretty-format op) (pretty-format expr))]))
 
@@ -516,10 +518,10 @@
      (emit-side-effect-primcall op expr si env)]
     [(add1)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "add r0,r0,#~a" (immediate-rep 1))]
+     (emit "add r0,r0,#~a" (immediate-rep 1) (// "add1"))]
     [(sub1)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "sub r0,r0,#~a" (immediate-rep 1))]
+     (emit "sub r0,r0,#~a" (immediate-rep 1) (// "sub1"))]
     [(zero?)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "cmp r0,#~a" (immediate-rep 0))
@@ -600,13 +602,12 @@
      (emit "  @ vector-ref{{{")
      (with-saved-registers [si ("r4")]
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "  sub r0, #~a" vector-tag)
-       (emit "  mov r4,r0") ; address in r4
+       (emit "  BIC r4,r0,#~a" vector-tag   (// "clear vector tag"))
        (emit-expr (primcall-operand2 expr) si env) ; offset in r0
-       (emit "  LSR r1,r0,#~a" fixnum-shift) ; fixnum->int (and move to r1)
-       (emit "  add r1,r1,#1") ; skip over vector size
-       (emit "  LSL r1,r1,#~a" (wordsize-shift)) ; multiply by wordsize
-       (emit "  ldr r0, [r4,r1]")) ; put return value in r0
+       (emit "  LSR r1,r0,#~a" fixnum-shift (// "offset fixnum->int"))
+       (emit "  add r1,r1,#1"               (// "skip over vector size"))
+       (emit "  LSL r1,r1,#~a" (wordsize-shift) (// "multiply by wordsize"))
+       (emit "  ldr r0, [r4,r1]"            (// "dereference and return")))
      (emit "  @ vector-ref}}}")]
     [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
