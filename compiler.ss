@@ -468,17 +468,17 @@
     [(make-vector) ; using only r0 and r1... could be more efficient
      (emit "  @ make-vector{{{")
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  lsr r0, #~a" fixnum-shift) ; turn fixnum into int
-     (emit "  str r0, [sp,#~a]" si) ; save size on stack
-     (emit "  add r0, r0, #11") ; align size to next
-     (emit "  and r0, r0, #-8") ;    object boundary
+     (emit "  lsr r0, #~a" fixnum-shift (// "fixnum->int"))
+     (emit "  str r0, [sp,#~a]" si      (// "save size on stack"))
+     (emit "  add r0, r0, #11"          (// "align size to next"))
+     (emit "  and r0, r0, #-8"          (// "   object boundary"))
      (emit "  str ~a, [sp,#~a]" heap-register (- si (wordsize))) ; save address on stack
      (emit "  add ~a,~a,r0" heap-register heap-register)
-     (emit-expr (primcall-operand2 expr (shift (- fixnum-shift)  #xdead0))
+     (emit-expr (primcall-operand2 expr (shift (- fixnum-shift) #xdead0))
                 (- si (wordsize) (wordsize)) env) ; r0 = initial value
-     (emit "  ldr r2, [sp,#~a]" (- si (wordsize))) ; r2 = pointer
-     (emit "  ldr r1, [sp,#~a]" si) ; r1 = size
-     (emit "  str r1, [r2],#~a" (wordsize)) ; write size
+     (emit "  ldr r2, [sp,#~a]" (- si (wordsize)) (// "pointer to vector"))
+     (emit "  ldr r1, [sp,#~a]" si                (// "size"))
+     (emit "  str r1, [r2],#~a" (wordsize)        (// "write size"))
      (let ([loop (unique-label "loop")] [break (unique-label "break")])
        (emit-label loop)
        (emit "  subs r1,r1,#1") ; decrement r1
@@ -486,8 +486,8 @@
        (emit "  str r0, [r2],#~a" (wordsize)) ; initialize word
        (emit-b 'always loop) ;
        (emit-label break))
-     (emit "  ldr r0, [sp,#~a]" (- si (wordsize)))  ; return the pointer
-     (emit "  orr r0,r0,#~a" vector-tag)             ; with appropriate tag
+     (emit "  ldr r0, [sp,#~a]" (- si (wordsize)) (// "restore pointer to vector"))
+     (emit "  orr r0,r0,#~a" vector-tag           (// "tag vector"))
      (emit "  @ make-vector}}}")]
     ))
 
