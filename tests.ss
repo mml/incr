@@ -1,5 +1,5 @@
 (module tests racket
-  (require "test-driver.ss")
+  (require "blah.ss")
 
   (define (runtests)
     (test-cases "vectors"
@@ -588,4 +588,5 @@
     )
 
   (module+ main
-    (runtests)))
+    (runtests)
+    (main)))
