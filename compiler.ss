@@ -155,8 +155,9 @@
 ;;; Fixnums end in #b00.
 ;;; All other integral types end in #b1111
 (define fixnum-shift 2)
+(define fixnum-clear #b11)
 (define boolean-mask #b10111111)
-(define boolean-tag #b00101111)
+(define boolean-tag  #b00101111)
 (define false-value (bitwise-or #b1111 (shift 4 #b0010)))
 (define true-value (bitwise-or #b1111 (shift 4 #b0110)))
 (define char-mask #b11111111)
@@ -522,6 +523,26 @@
     [(sub1)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "sub r0,r0,#~a" (immediate-rep 1) (// "sub1"))]
+    [(bitwise-arithmetic-shift-left bitwise-arithmetic-shift)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  str r0, [sp,#~a]" si)
+     (emit-expr (primcall-operand2 expr) si env)
+     (emit "  ldr r1, [sp,#~a]" si)
+     (emit "  ASRS r0,r0,#~a" fixnum-shift (// "fixnum->int"))
+     (emit "  LSLPL r0,r1,r0")
+     (emit "  RSBMI r0,r0,#0")
+     (emit "  ASRMI r0,r1,r0")
+     (emit "  BICMI r0,r0,#~a" fixnum-clear)]
+    [(bitwise-arithmetic-shift-right)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  str r0, [sp,#~a]" si)
+     (emit-expr (primcall-operand2 expr) si env)
+     (emit "  ldr r1, [sp,#~a]" si)
+     (emit "  ASRS r0,r0,#~a" fixnum-shift (// "fixnum->int"))
+     (emit "  ASRPL r0,r1,r0")
+     (emit "  BICPL r0,r0,#~a" fixnum-clear)
+     (emit "  RSBMI r0,r0,#0")
+     (emit "  LSLMI r0,r1,r0")]
     [(zero?)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "cmp r0,#~a" (immediate-rep 0))
