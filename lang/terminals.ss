@@ -17,7 +17,7 @@
   '(add1 sub1 integer->char char->integer zero? not null? car cdr cadr cddr caddr))
 
 (define binary-primitives
-  '(+ - = * < cons make-vector vector-ref set!))
+  '(+ - = * < cons make-vector vector-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right))
 
 (define ternary-primitives
   '(vector-set!))

@@ -280,7 +280,8 @@
       ;; integer<->char
       (test-case (integer->char 65) "#\\A")
       (test-case (char->integer #\A) "65")
-      (test-case (integer->char (add1 (char->integer #\l))) "#\\m"))
+      (test-case (integer->char (add1 (char->integer #\l))) "#\\m")
+      )
 
     (test-cases "Binary primitives"
       ; +
@@ -338,7 +339,34 @@
       (test-case (= (* (+ 10 20) (+ 30 40))
                      (+ (* 10 (+ 30 40))
                         (* 20 (+ 30 40))))
-                 "#t"))
+                 "#t")
+      
+      ;; bit shifting
+      (test-case (bitwise-arithmetic-shift 1 10) "1024")
+      (test-case (bitwise-arithmetic-shift-left 1 10) "1024")
+      (test-case (bitwise-arithmetic-shift-right 1 -10) "1024")
+
+      (test-case (bitwise-arithmetic-shift 65536 -6) "1024")
+      (test-case (bitwise-arithmetic-shift-left 65536 -6) "1024")
+      (test-case (bitwise-arithmetic-shift-right 65536 6) "1024")
+
+      (test-case (bitwise-arithmetic-shift-right 1 1) "0")
+
+      (test-case (bitwise-arithmetic-shift -1 10) "-1024")
+      (test-case (bitwise-arithmetic-shift-left -1 10) "-1024")
+      (test-case (bitwise-arithmetic-shift-right -1 -10) "-1024")
+
+      (test-case (bitwise-arithmetic-shift -65536 -6) "-1024")
+      (test-case (bitwise-arithmetic-shift-left -65536 -6) "-1024")
+      (test-case (bitwise-arithmetic-shift-right -65536 6) "-1024")
+
+      (test-case (bitwise-arithmetic-shift-right -1 1) "-1")
+      (test-case (bitwise-arithmetic-shift -65536 -15) "-2")
+      (test-case (bitwise-arithmetic-shift -65536 -16) "-1")
+      (test-case (bitwise-arithmetic-shift -65536 -17) "-1")
+      (test-case (bitwise-arithmetic-shift -65536 -30) "-1")
+      (test-case (bitwise-arithmetic-shift -65536 -32) "-1")
+      )
 
     (test-cases "let"
       (test-case (let ([b 10]) b) "10")
