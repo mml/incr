@@ -119,7 +119,7 @@ void print_ptr(int val) {
 }
 
 int main(int argc, char **argv) {
-  int heap_size = (16 * 4096); /* 16K values */
+  int heap_size = (64 * 4096); /* 64K values */
   char *heap_base = allocate_protected_space(heap_size);
   char *heap_top = heap_base + heap_size;
 

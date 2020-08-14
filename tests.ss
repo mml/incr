@@ -65,6 +65,26 @@
                                 (check* (sub1 n)))))])
             (check* (sub1 size))))
         "#t")
+
+      ; Something that takes long enough to be a speed test.
+      (test-case
+        (let ([size 10000])
+          (letrec
+            ([v (make-vector size 1)]
+             [f (lambda (n acc)
+                  (cond
+                    [(< n 0) acc]
+                    [else (f (sub1 n) (+ acc (vector-ref v n)))]))]
+             [g (lambda (n acc)
+                  (cond
+                    [(zero? n) acc]
+                    [else (g
+                            (sub1 n)
+                            (+ acc
+                               (bitwise-arithmetic-shift-right
+                                 (f (sub1 size) 0) 4)))]))])
+            (g 10000 0)))
+        "6250000")
       )
 
     (test-cases "macro expansion"
