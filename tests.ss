@@ -204,6 +204,13 @@
       (test-case (begin 0) "0")
       (test-case (begin 0 10) "10"))
 
+    (test-cases "do"
+      (test-case (do ([i 10]) [#t i]) "10")
+      (test-case (do ([i 0 (add1 i)]
+                      [x 0 (+ x i)])
+                   [(> i 10) x])
+                 "10"))
+
     (test-cases "Integer immediates"
       ; ARM cases
       ; Easy #1: 8 bit values
