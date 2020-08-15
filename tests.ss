@@ -69,7 +69,7 @@
       ; Something that takes long enough to be a speed test.
       (test-case
         (letrec
-          ([size 10000]
+          ([size 12 #;10000]
            [v (make-vector size 1)]
            [f (lambda (n acc)
                 (cond
@@ -78,9 +78,13 @@
            [g (lambda (n acc)
                 (cond
                   [(zero? n) acc]
-                  [else (g (sub1 n) (f (sub1 size) acc))]))])
-          (g 10000))
-        "100000000")
+                  [else (g
+                          (sub1 n)
+                          (+ acc
+                             (bitwise-arithmetic-shift-right
+                               (f (sub1 size) 0) 4)))]))])
+          (f (sub1 size) 0) #;(g 1000 0))
+        "12" #;"625000")
       )
 
     (test-cases "macro expansion"
