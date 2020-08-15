@@ -78,6 +78,7 @@
     (emit-move32 "lr" #xdeadbeef))
   (emit "  mov ~a,r0" heap-register) ; Save heap base
   (emit-expr expr (- 0 (wordsize)) env)
+  (emit-label "scheme_return")
   (emit "  ldmfd sp!, {lr}") ;; Restore LR
   (emit "  bx lr")
   (emit-end-function "scheme_entry"))
