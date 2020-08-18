@@ -70,8 +70,8 @@ $(RACKET_COMPILEDIR)/%:
 	mkdir -p $@
 
 compiled: | $(RACKET_COMPILEDIR)/root
-	ln -s $< $@
+	ln -sf $| $@
 
 %/compiled: | $(RACKET_COMPILEDIR)/%
-	ln -s $< $@
+	ln -sf $| $@
 
