@@ -20,7 +20,7 @@
       (apply-passes (cdr p*) ((car p*) e))]))
 
 (define (all-passes e)
-  (apply-passes passes))
+  (apply-passes passes e))
 
 (define (passes-up-to p e)
   (let loop ([passes passes] [e e])
