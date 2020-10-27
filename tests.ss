@@ -2,10 +2,14 @@
   (require "test-driver.ss")
 
   (define (runtests)
+
     (test-cases "vectors"
       (test-case (make-vector 0 0) "#()")
       (test-case (make-vector 1 0) "#(0)")
       (test-case (make-vector 10 0) "#(0 0 0 0 0 0 0 0 0 0)")
+      (test-case
+        (vector-length (make-vector 500 1))
+        "500")
       (test-case
         (let ([v (make-vector 5 0)])
           (vector-set! v 1 20)

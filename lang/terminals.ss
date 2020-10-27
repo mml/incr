@@ -14,7 +14,7 @@
        (not (primitive? x))))
 
 (define unary-primitives
-  '(add1 sub1 integer->char char->integer zero? not null? car cdr cadr cddr caddr))
+  '(add1 sub1 integer->char char->integer zero? not null? car cdr cadr cddr caddr vector-length))
 
 (define binary-primitives
   '(+ - = * < cons make-vector vector-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right))

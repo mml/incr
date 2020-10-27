@@ -267,7 +267,7 @@
         [else
           (case (car x)
             [(add1 sub1 integer->char char->integer zero? not null? + - = * <
-              cons car cdr cadr cddr caddr make-vector vector-ref vector-set!)
+              cons car cdr cadr cddr caddr make-vector vector-ref vector-set! vector-length)
              #t]
             [else #f])])
           #f))
@@ -623,6 +623,11 @@
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
      (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
+    [(vector-length)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  BIC r0,r0, #~a" vector-tag)
+     (emit "  ldr r0, [r0]")
+     (emit "  lsl r0, #~a" fixnum-shift (// "int->fixnum"))]
     [(vector-ref)
      (emit "  @ vector-ref{{{")
      (with-saved-registers [si ("r4")]
