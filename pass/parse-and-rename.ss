@@ -138,17 +138,28 @@
   [`(,hd ,tl* ___) `(primcall cons ,(Expr hd env) ,(List tl* env))]))
 
 (define (Letrec x* e* body* env)
-  (let* ([xbindings (map (lambda (x) (list x #f)) x*)]
-         [t* (map (lambda (x) (tmp)) x*)]
+  (let* ([ux* (map unique-variable x*)]
+         [xbindings (map (lambda (x) (list x ''#f)) ux*)]
+         [t* (map (lambda (x) (tmp)) ux*)]
          [tbindings (map (lambda (t e) (list t e)) t* e*)]
          [set-expr* (map (lambda (x t)
                            `(set! ,x ,t))
-                         x* t*)])
-    (Expr `(let ,xbindings
-             (let ,tbindings
-               ,@set-expr*
-               ,@body*))
-          env)))
+                         x* t*)]
+         [env (append (map cons t* t*) (map cons x* ux*) env)])
+    `(let ,xbindings
+       (let ,(map list t* (Expr* e* env))
+         ,@(Expr* set-expr* env)
+         ,@(Expr* body* env)))))
+
+(module+ test
+  (check-equal?
+    (Letrec '(foo bar) '(9 (+ 1 baz)) '((+ foo bar))
+            (cons '(baz . baz.1000) primitives))
+    '(let ([foo.3 '#f] [bar.4 '#f])
+       (let ([tmp4 '9] [tmp5 (primcall + '1 baz.1000)])
+         (primcall set! foo.3 tmp4)
+         (primcall set! bar.4 tmp5)
+         (primcall + foo.3 bar.4)))))
 
 (define (Let* binding* body* env) (match binding*
   ['() `(let () ,@(Expr* body* env))]
