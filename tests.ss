@@ -152,6 +152,13 @@
           (len (list 1 2 3 4 5 6)))
         "6")
 
+      ;;; Letrec bug
+      #;(test-case
+        (letrec ([size 10000]
+                 [v (make-vector size 1)])
+          (vector-length v))
+        "10000")
+
       (test-case
         (let* ([a 10]
                [b (+ a 20)]
