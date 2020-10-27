@@ -34,9 +34,10 @@
               (loop (cdr x*) (cdr code*))]))))
 
 (define (emit-Def x code env)
-  (emit "/* label ~a */" x)
+  (emit "  @ label ~a{{{" x)
   (emit-label (lookup x env))
-  (emit-Code code env))
+  (emit-Code code env)
+  (emit "  @ label }}}~a" x))
 
 ; emit-Code emits a subroutine
 (define (emit-Code code env) (match code
@@ -240,7 +241,7 @@
 
 (define (emit-begin-function name)
   (emit "")
-  (emit "/* begin function ~a */" name)
+  (emit "  @ function ~a{{{" name)
   (emit "  .align 2")
   (emit "  .global ~a" name)
   (emit "  .type ~a, %function" name)
@@ -248,7 +249,7 @@
 
 (define (emit-end-function name)
   (emit ".size ~a, .-~a" name name)
-  (emit "/* end function ~a */" name)
+  (emit "  @ function }}}~a" name)
   (emit ""))
 
 (define (immediate? x)
@@ -412,7 +413,7 @@
   ; should save.  We restore it first as a kludge.  In the future, we should
   ; emit a special Lx_tail label pointing to the spot right after where we save
   ; the LR on the stack.  Then we can branch to there instead.
-  (emit "  @ tailcall")
+  (emit "  @ tailcall{{{")
   (emit-expr f si env) ; r0 = closure
   (emit "  BIC r0,r0,#~a" closure-tag      (// "clear tag bits"))
   (emit "  str r0, [sp,#~a]" closure-index (// "put closure on stack"))
@@ -428,11 +429,12 @@
       [else
         (emit-expr (car e*) si env)
         (emit "  str r0, [sp,#~a]" arg-index   (// "store arg ~a" arg-count))
-        (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))])))
+        (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))]))
+  (emit "  @ }}}tailcall"))
 
 ; emit-Funcall sets up a call and then branches
 (define (emit-Funcall f e* si env)
-  (emit "  @ funcall")
+  (emit "  @ funcall{{{")
   (emit-expr f si env) ; r0 = closure
   (let ([psi si]) ; procedure SI
     (emit "  BIC r0,r0,#~a" closure-tag              (// "clear tag bits"))
@@ -453,7 +455,8 @@
           (emit-expr (car e*) si env)
           (emit "  str r0, [sp,#~a] /* store arg ~a */"
                 arg-index arg-count)
-          (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))]))))
+          (loop (cdr e*) (- arg-index (wordsize)) (add1 arg-count) (- si (wordsize)))])))
+  (emit "  @ }}}funcall"))
 
 (define (emit-allocation-primcall op expr si env)
   (case op
@@ -647,7 +650,7 @@
       [else
         (let ([b (car b*)])
           (emit-expr (rhs b) si env)
-          (emit "  str r0, [sp,#~a]" si)
+          (emit "  str r0, [sp,#~a]" si (// "let ~a" (lhs b)))
           (f (cdr b*)
              (extend-env (lhs b) (cons "sp" si) new-env)
              (- si (wordsize))))])))
