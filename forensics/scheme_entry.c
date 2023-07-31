@@ -1,5 +1,5 @@
 int scheme_entry() {
-	return 42 << 2;
+	return 42;
 }
 
 int foo() {

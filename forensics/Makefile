@@ -1,11 +1,19 @@
-MACH=arm32le
+MACH=rv64le
+
+ifeq '$(MACH)' 'arm32le'
+	MACHARGS = -march=armv8-a+simd -mno-sched-prolog -DARM32LE
+else
+ifeq '$(MACH)' 'rv64le'
+endif
+endif
 
 .DEFAULT: debug
 
 SRCS = $(wildcard *.c)
-RUN_SRCS = sizes.c align.c
+AS_SRCS = $(wildcard $(MACH)-*.s)
+RUN_SRCS = sizes.c align.c endian.c
 
-OBJ_TARGETS = $(patsubst %.c,$(MACH)/%.s,$(SRCS)) $(patsubst %.c,$(MACH)/%.dump,$(SRCS))
+OBJ_TARGETS = $(patsubst %.c,$(MACH)/%.s,$(SRCS)) $(patsubst %.c,$(MACH)/%.dump,$(SRCS)) $(patsubst $(MACH)-%.s,$(MACH)/%.dump,$(AS_SRCS))
 RUN_TARGETS = $(patsubst %.c,$(MACH)/%,$(RUN_SRCS))
 
 TARGETS = $(OBJ_TARGETS) $(RUN_TARGETS)
@@ -26,9 +34,12 @@ test: scheme_entry.out
 	./$<
 
 $(MACH)/%.s: %.c
-	gcc -march=armv8-a+simd -mno-sched-prolog -O3 --omit-frame-pointer -S -o $@ $<
+	gcc $(MACHARGS) -O3 --omit-frame-pointer -S -o $@ $<
 
 $(MACH)/%.o: $(MACH)/%.s
+	as -o $@ $<
+
+$(MACH)/%.o: $(MACH)-%.s
 	as -o $@ $<
 
 $(MACH)/%.dump: $(MACH)/%.o
@@ -38,4 +49,4 @@ $(MACH)/%: $(MACH)/%.o
 	gcc -o $@ $<
 
 scheme_entry.out: arm32le/scheme_entry.s ../driver.c
-	gcc -march=armv8-a+simd -mno-sched-prolog -O3 --omit-frame-pointer -o $@ $^
+	gcc $(MACHARGS) -O3 --omit-frame-pointer -o $@ $^
