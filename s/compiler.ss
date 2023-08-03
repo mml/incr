@@ -6,7 +6,7 @@
 
 (require racket/match)
 (require racket/trace)
-(require "pass/all.ss")
+(require "passes.ss")
 
 (define (compile-program prog)
   (let ([labels (identify-tail-calls

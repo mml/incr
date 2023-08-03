@@ -3,13 +3,13 @@
 (provide (all-defined-out))
 (provide make-begin-explicit uncover-settable remove-set! uncover-free parse-and-rename collect-code identify-tail-calls)
 
-(require "make-begin-explicit.ss")
-(require "uncover-settable.ss")
-(require "remove-set.ss")
-(require "uncover-free.ss")
-(require "parse-and-rename.ss")
-(require "collect-code.ss")
-(require "identify-tail-calls.ss")
+(require "pass/make-begin-explicit.ss")
+(require "pass/uncover-settable.ss")
+(require "pass/remove-set.ss")
+(require "pass/uncover-free.ss")
+(require "pass/parse-and-rename.ss")
+(require "pass/collect-code.ss")
+(require "pass/identify-tail-calls.ss")
 
 (define passes (list parse-and-rename make-begin-explicit uncover-settable remove-set! uncover-free collect-code identify-tail-calls))
 
