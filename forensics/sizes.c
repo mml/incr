@@ -1,5 +1,7 @@
 #include <stdio.h>
+#ifdef ARM32LE
 #include <arm_fp16.h>
+#endif
 
 #define PRINT_SIZEOF(t) printf("sizeof(" #t ") = %3d\n", sizeof(t))
 

@@ -3,7 +3,81 @@
 (provide emit-prologue)
 (provide emit-Labels)
 (provide emit-epilogue)
+(require "compile-params.ss")
 
-(define (emit-prologue) (error 'unimplimented))
-(define (emit-Labels) (error 'unimplimented))
-(define (emit-epilogue) (error 'unimplimented))
+(define (shift n-bits val)
+  (arithmetic-shift val n-bits))
+(define fixnum-shift 2)
+; TODO: maybe make a fresh on one each compile-program invocation?
+(define (make-labeler)
+  (let ([x 0])
+    (lambda (prefix)
+      (set! x (+ x 1))
+      (format "~a~a" prefix x))))
+
+(define /unique-label (make-labeler))
+(define unique-label
+  (case-lambda
+    [() (/unique-label "L")]
+    [(prefix) (/unique-label prefix)]))
+
+
+(define (emit . args)
+  (apply fprintf (compile-port) args)
+  (newline (compile-port)))
+
+(define (emit-prologue)
+  (emit "  .option pic")
+  (emit "  .attribute arch, \"rv64i2p1_m2p0_a2p1_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0\"")
+  (emit "  .attribute unaligned_access, 0")
+  (emit "  .attribute stack_align, 16")
+  (emit "  .text")
+  (emit "  .align	1"))
+
+(define (emit-Labels expr) (match expr
+  [`(labels ([,x* ,code*] ___) ,body)
+    (let ([env (emit-Def* x* code*)])
+      (emit-scheme-entry body env))]))
+
+(define (emit-Def* x* code*)
+  (let ([env (map (lambda (x) (cons x (unique-label))) x*)])
+    (let loop ([x* x*] [code* code*])
+      (cond [(null? x*) env]
+            [else
+              (emit-Def (car x*) (car code*) env)
+              (loop (cdr x*) (cdr code*))]))))
+
+(define (emit-Def x code env)
+  (error 'unimplemented))
+
+(define (emit-scheme-entry expr env)
+  (emit-begin-function "scheme_entry")
+  (emit-expr expr #xdeadbeef env) ; TODO: Stack index
+  (emit-label "scheme_return")
+  (emit "  ret")
+  (emit-end-function "scheme_entry"))
+
+(define (emit-expr expr si env) (match expr
+  [`(quote ,c) (emit "  li a0, ~a" (immediate-rep c))]))
+
+(define (immediate-rep x)
+  (cond [(integer? x) (shift fixnum-shift x)]
+        [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
+
+(define (emit-begin-function name)
+  (emit "")
+  (emit "  .align 1")
+  (emit "  .globl  ~a" name)
+  (emit "  .type   ~a, @function" name)
+  (emit-label name))
+
+(define (emit-label l)
+  (emit "~a:" l))
+
+(define (emit-end-function name)
+  (emit "  .size ~a, .-~a" name name))
+
+
+(define (emit-epilogue)
+  (emit ".ident         \"mml scheme compiler\"")
+  (emit ".section       .note.GNU-stack,\"\",@progbits"))
