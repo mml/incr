@@ -3,7 +3,7 @@
 (provide make-begin-explicit)
 
 (require racket/match)
-(require "../lang/terminals.ss")
+(require "../terminals.ss")
 
 (define (make-begin-explicit expr) (match expr
   [`(quote ,c) expr]

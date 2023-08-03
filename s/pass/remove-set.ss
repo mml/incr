@@ -5,7 +5,7 @@
 (require racket/match)
 (require racket/trace)
 (require "generators.ss")
-(require "../lang/terminals.ss")
+(require "../terminals.ss")
 
 (define (remove-set! expr)
   (Expr expr '()))

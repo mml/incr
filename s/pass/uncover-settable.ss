@@ -4,7 +4,7 @@
 
 (require racket/match)
 (require racket/trace)
-(require "../lang/terminals.ss")
+(require "../terminals.ss")
 
 (define (uncover-settable expr)
   (let-values ([(e settable) (Expr expr)])

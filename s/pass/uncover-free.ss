@@ -3,7 +3,7 @@
 (provide uncover-free)
 
 (require racket/match)
-(require "../lang/terminals.ss")
+(require "../terminals.ss")
 
 (define (uncover-free expr)
   (let-values ([(e free) (Expr expr)])

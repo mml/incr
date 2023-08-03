@@ -6,11 +6,11 @@ TARGET = $(WORKDIR)/x-test-program
 OBJECT = $(WORKDIR)/x-test-program.o
 ASSEMBLY = $(WORKDIR)/x-test-program.s
 COMPILE_SCHEME = compiler.ss test-driver.ss tests.ss
-SCHEME_DIRS = lang pass .
+SCHEME_DIRS = pass .
 scheme_files = $(wildcard $(1)/*.ss)
 zo_file = $(dir $(1))compiled/$(patsubst %.ss,%_ss.zo,$(notdir $(1)))
 zo_files = $(foreach file,$(call scheme_files,$(1)),$(call zo_file,$(file)))
-ZO_FILES = $(foreach dir,lang pass,$(call zo_files,$(dir))) $(foreach file,$(COMPILE_SCHEME),$(call zo_file,$(file)))
+ZO_FILES = $(foreach dir,pass,$(call zo_files,$(dir))) $(foreach file,$(COMPILE_SCHEME),$(call zo_file,$(file)))
 SCHEME_COMPILE_DIRS = $(foreach dir,$(SCHEME_DIRS),$(dir)/compiled)
 
 .PHONY: test unit debug dump raco cat edit clean realclean zo
@@ -18,8 +18,8 @@ SCHEME_COMPILE_DIRS = $(foreach dir,$(SCHEME_DIRS),$(dir)/compiled)
 test: $(ZO_FILES) | $(WORKDIR)
 	racket tests.ss
 
-unit: $(call zo_files,lang) $(call zo_files,pass)
-	raco test --table --fresh-user --deps -x -j 20 $(COMPILE_SCHEME) lang/*.ss pass/*.ss
+unit: $(call zo_files,pass)
+	raco test --table --fresh-user --deps -x -j 20 $(COMPILE_SCHEME) pass/*.ss
 
 debug: $(TARGET)
 	gdb -q $<
@@ -45,9 +45,6 @@ zo: $(ZO_FILES)
 $(call zo_files,.) : $(call zo_file,%.ss): %.ss | compiled
 	raco make -v --no-deps $<
 
-$(call zo_files,lang) : $(call zo_file,lang/%.ss): lang/%.ss | lang/compiled
-	raco make -v --no-deps $<
-
 $(call zo_files,pass) : $(call zo_file,pass/%.ss): pass/%.ss | pass/compiled
 	raco make -v --no-deps $<
 
@@ -57,7 +54,7 @@ clean:
 	rm -f $(ZO_FILES) $(WORKDIR)/*
 
 realclean:
-	rm -rf $(SHMDIR) compiled lang/compiled pass/compiled
+	rm -rf $(SHMDIR) compiled pass/compiled
 
 
 ### directories
