@@ -40,3 +40,9 @@ mkdir -p $W/s
   workln Mf-$M Makefile
   workln ../../s/Mf-base Mf-base
 )
+
+mkdir -p $W/c
+(
+  cd $W/c
+  workln ../../c/driver.c driver.c
+)

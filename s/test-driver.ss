@@ -42,7 +42,7 @@
       (error 'as "assemble error"))))
 
 (define (build-driver)
-  (unless (system-successful? (format "~a -DNO_NEWLINE -g -o ~a -c ../../driver.c" c-compiler-path (string-append (output-dir) "/driver.o")))
+  (unless (system-successful? (format "~a -DNO_NEWLINE -g -o ~a -c ../c/driver.c" c-compiler-path (string-append (output-dir) "/driver.o")))
     (error 'gcc "build error")))
 
 (define (build)
