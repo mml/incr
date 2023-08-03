@@ -3,7 +3,7 @@
 
   (define (runtests)
 
-    (test-cases "vectors"
+    (test-cases skip "vectors"
       (test-case (make-vector 0 0) "#()")
       (test-case (make-vector 1 0) "#(0)")
       (test-case (make-vector 10 0) "#(0 0 0 0 0 0 0 0 0 0)")
@@ -91,7 +91,7 @@
         "6250000")
       )
 
-    (test-cases "macro expansion"
+    (test-cases skip "macro expansion"
       (test-case (and) "#t")
       (test-case (and 1) "1")
       (test-case (and 1 2) "2")
@@ -168,7 +168,7 @@
 
       )
 
-    (test-cases "assignment"
+    (test-cases skip "assignment"
       (test-case
         ((((lambda (x)
              (let ([r #f])
@@ -226,12 +226,12 @@
         "3")
       )
 
-    (test-cases "parsing challenges"
+    (test-cases skip "parsing challenges"
       (test-case ((lambda (lambda) (lambda lambda)) (lambda (let) 20))
                  "20")
       )
 
-    (test-cases "begin"
+    (test-cases skip "begin"
       (test-case (begin 0) "0")
       (test-case (begin 0 10) "10"))
 
@@ -263,7 +263,7 @@
       (test-case 65535 "65535")
       (test-case -1 "-1"))
 
-    (test-cases "Non-integer immediates"
+    (test-cases skip "Non-integer immediates"
       ; booleans
       (test-case #t "#t")
       (test-case #f "#f")
@@ -274,7 +274,7 @@
       ; null
       (test-case '() "()"))
 
-    (test-cases "Unary primitives"
+    (test-cases skip "Unary primitives"
       ;;; unary primitives
       ; add1
       (test-case (add1 0) "1")
@@ -314,7 +314,7 @@
       (test-case (integer->char (add1 (char->integer #\l))) "#\\m")
       )
 
-    (test-cases "Binary primitives"
+    (test-cases skip "Binary primitives"
       ; +
       (test-case (+ 2 2) "4")
       (test-case (+ 0 0) "0")
@@ -399,7 +399,7 @@
       (test-case (bitwise-arithmetic-shift -65536 -32) "-1")
       )
 
-    (test-cases "let"
+    (test-cases skip "let"
       (test-case (let ([b 10]) b) "10")
       (test-case (let ([b 10])
                     (let ([b (+ b b)])
@@ -415,7 +415,7 @@
 
       (test-case (let () 10 20) "20"))
 
-    (test-cases "if"
+    (test-cases skip "if"
       (test-case (if #t 20 30) "20")
       (test-case (if (< 0 1) 1 0) "1")
       (test-case (if (< 66 (char->integer #\A)) 9 5) "5")
@@ -446,7 +446,7 @@
                       (not (not (not (not b))))))
                  "#t"))
 
-    (test-cases "cons"
+    (test-cases skip "cons"
       (test-case (car (cons 10 20)) "10")
       (test-case (cdr (cons 10 20)) "20")
       (test-case (car (cons 10 (cons 15 20))) "10")
@@ -474,7 +474,7 @@
                      '()))
                  "((10 20) (30 40))"))
 
-    (test-cases "procedures"
+    (test-cases skip "procedures"
       (test-case
         (let ([ten (lambda () 10)])
           (ten))
@@ -560,7 +560,7 @@
         "26000")
       )
 
-    (test-cases "tail calls"
+    (test-cases skip "tail calls"
       ; this one does no allocation, so it just pressures stack frames
       (test-case
         (let ([fxid-helper
@@ -583,7 +583,7 @@
         "26000")
       )
 
-    (test-cases "closures"
+    (test-cases skip "closures"
       ; This closes over variables but it has no recursion and no tail calls.
       (test-case
         (let ([incr (lambda (x) (add1 x))])

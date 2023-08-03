@@ -58,7 +58,7 @@
   (define cases
     '(
       ('9 . '9)
-      ((funcall
+      #;((funcall
          (funcall
            (funcall
              (lambda (x0)

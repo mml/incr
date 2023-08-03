@@ -1,4 +1,3 @@
-MAKEFLAGS += -j
 WORKDIR = out
 TARGET = $(WORKDIR)/x-test-program
 OBJECT = $(WORKDIR)/x-test-program.o
