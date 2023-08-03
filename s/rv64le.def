@@ -1,0 +1,9 @@
+#lang racket
+
+(provide emit-prologue)
+(provide emit-Labels)
+(provide emit-epilogue)
+
+(define (emit-prologue) (error 'unimplimented))
+(define (emit-Labels) (error 'unimplimented))
+(define (emit-epilogue) (error 'unimplimented))

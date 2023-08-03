@@ -39,6 +39,8 @@ mkdir -p $W/s
   workln ../../s/Mf-$M Mf-$M
   workln Mf-$M Makefile
   workln ../../s/Mf-base Mf-base
+  workln ../../s/$M.def $M.def
+  workln $M.def machine.ss
 )
 
 mkdir -p $W/c
