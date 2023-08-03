@@ -274,7 +274,7 @@
       ; null
       (test-case '() "()"))
 
-    (test-cases skip "Unary primitives"
+    (test-cases "Unary primitives"
       ;;; unary primitives
       ; add1
       (test-case (add1 0) "1")
@@ -282,6 +282,8 @@
       (test-case (add1 (add1 -2)) "0")
 
       ; sub1
+      (test-case (sub1 2) "1")
+      (test-case (sub1 1) "0")
       (test-case (sub1 0) "-1")
       (test-case (sub1 (sub1 0)) "-2")
       (test-case (sub1 (sub1 2)) "0")

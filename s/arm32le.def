@@ -259,14 +259,6 @@
 (define if-conseq caddr)
 (define if-altern cadddr)
 
-(define primcall-op car)
-(define primcall-operand1
-  (case-lambda
-    [(expr) (cadr expr)]
-    [(expr default) (if (null? (cdr expr))
-                        default
-                        (primcall-operand1 expr))]))
-
 (define primcall-operand2
   (case-lambda
     [(expr) (caddr expr)]

@@ -58,7 +58,60 @@
   (emit-end-function "scheme_entry"))
 
 (define (emit-expr expr si env) (match expr
-  [`(quote ,c) (emit "  li a0, ~a" (immediate-rep c))]))
+  [`(quote ,c) (emit "  li a0, ~a" (immediate-rep c))]
+  [`(primcall ,pr ,e* ___) (emit-primitive-call `(,pr ,@e*) si env)]
+  ))
+
+(define (emit-primitive-call expr si env)
+  (let ([op (primcall-op expr)])
+    (case op
+      [(add1)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "addiw a0,a0,~a" (immediate-rep 1))]
+      [(sub1)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "addiw a0,a0,~a" (immediate-rep -1))]
+      [(zero?)
+       (let ([L-zero (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "li a1, ~a" (immediate-rep 0))
+         (emit "beq a0,a1,~a" L-zero)
+         (emit "li a0, ~a" (constant false-value))
+         (emit "j ~a" L-end)
+         (emit-label L-zero)
+         (emit "li a0, ~a" (constant true-value))
+         (emit-label L-end))]
+      [(not)
+       (let ([L-false-operand (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "li a1, ~a" (immediate-rep #f))
+         (emit "beq a0,a1,~a" L-false-operand)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" L-end)
+         (emit-label L-false-operand)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label L-end))]
+      [(null?)
+       (emit-expr (primcall-operand1 expr) si env)
+       (let ([L-null-operand (unique-label)]
+             [L-end (unique-label)])
+         (emit "li a1, ~a" (immediate-rep '()))
+         (emit "beq a0,a1, ~a" L-null-operand)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" L-end)
+         (emit-label L-null-operand)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label L-end))]
+      [(integer->char)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "slli a0,a0,~a" (- (constant char-shift) fixnum-shift))
+       (emit "ori  a0,a0,~a" (constant char-tag))]
+      [(char->integer)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "srai a0,a0,~a" (- (constant char-shift) fixnum-shift))]
+      [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
 (define (immediate-rep x)
   (cond [(integer? x) (shift fixnum-shift x)]

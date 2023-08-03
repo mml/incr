@@ -8,6 +8,8 @@
 (provide constant)
 (provide bitwise-or)
 (provide shift)
+(provide primcall-op)
+(provide primcall-operand1)
 
 (define scramble-link-register?
   (make-parameter #f))
@@ -55,6 +57,15 @@
 (define-constant char-tag #b00001111)
 (define-constant char-shift 8)
 (define-constant null-value #b00111111)
+
+(define primcall-op car)
+(define primcall-operand1
+  (case-lambda
+    [(expr) (cadr expr)]
+    [(expr default) (if (null? (cdr expr))
+                        default
+                        (primcall-operand1 expr))]))
+
 
 (module+ test
   (require rackunit)

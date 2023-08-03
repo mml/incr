@@ -4,7 +4,7 @@ OBJECT = $(WORKDIR)/x-test-program.o
 ASSEMBLY = $(WORKDIR)/x-test-program.s
 SRCS = $(shell cd ../../s; echo *.ss)
 zo_file = $(dir $(1))compiled/$(patsubst %.ss,%_ss.zo,$(notdir $(1)))
-ZO_FILES = $(foreach file,$(SRCS),$(call zo_file,$(file)))
+ZO_FILES = $(foreach file,$(SRCS) machine.ss config.ss,$(call zo_file,$(file)))
 
 .PHONY: test unit debug dump raco cat edit clean realclean zo
 
