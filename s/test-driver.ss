@@ -13,7 +13,7 @@
 
 (define output-dir
   (make-parameter
-    "/dev/shm/incr/out"
+    "out"
     string?))
 
 (define assembly-file

@@ -4,7 +4,7 @@
 
 (require racket/match)
 (require racket/trace)
-(require "../terminals.ss")
+(require "terminals.ss")
 
 (define anon
   (let ()

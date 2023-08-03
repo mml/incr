@@ -1,25 +1,18 @@
 MAKEFLAGS += -j
-SHMDIR = /dev/shm/incr
-WORKDIR = $(SHMDIR)/out
-RACKET_COMPILEDIR = $(SHMDIR)/compiled
+WORKDIR = out
 TARGET = $(WORKDIR)/x-test-program
 OBJECT = $(WORKDIR)/x-test-program.o
 ASSEMBLY = $(WORKDIR)/x-test-program.s
-COMPILE_SCHEME = compiler.ss test-driver.ss tests.ss terminals.ss passes.ss
-SCHEME_DIRS = pass .
-scheme_files = $(wildcard $(1)/*.ss)
 zo_file = $(dir $(1))compiled/$(patsubst %.ss,%_ss.zo,$(notdir $(1)))
-zo_files = $(foreach file,$(call scheme_files,$(1)),$(call zo_file,$(file)))
-ZO_FILES = $(foreach dir,pass,$(call zo_files,$(dir))) $(foreach file,$(COMPILE_SCHEME),$(call zo_file,$(file)))
-SCHEME_COMPILE_DIRS = $(foreach dir,$(SCHEME_DIRS),$(dir)/compiled)
+ZO_FILES = $(foreach file,$(wildcard *.ss),$(call zo_file,$(file)))
 
 .PHONY: test unit debug dump raco cat edit clean realclean zo
 
 test: $(ZO_FILES) | $(WORKDIR)
 	racket tests.ss
 
-unit: $(call zo_files,pass)
-	raco test --table --fresh-user --deps -x -j 20 $(COMPILE_SCHEME) pass/*.ss
+unit: $(ZO_FILES)
+	raco test --table --fresh-user --deps -x -j 20 *.ss
 
 debug: $(TARGET)
 	gdb -q $<
@@ -34,41 +27,20 @@ edit: $(ASSEMBLY)
 	$(EDITOR) $<
 
 
-### Deprecated targets
-raco: | $(SCHEME_COMPILE_DIRS)
-	raco make -v $(COMPILE_SCHEME)
-
-
 ### A nasty mess showing how to do byte compilation.
 zo: $(ZO_FILES)
 
-$(call zo_files,.) : $(call zo_file,%.ss): %.ss | compiled
+$(ZO_FILES) : $(call zo_file,%.ss): %.ss | compiled
 	raco make -v --no-deps $<
-
-$(call zo_files,pass) : $(call zo_file,pass/%.ss): pass/%.ss | pass/compiled
-	raco make -v --no-deps $<
-
 
 ### clean rules
 clean:
 	rm -f $(ZO_FILES) $(WORKDIR)/*
 
 realclean:
-	rm -rf $(SHMDIR) compiled pass/compiled
+	rm -rf compiled $(WORKDIR)
 
 
 ### directories
-$(SHMDIR) $(RACKET_COMPILEDIR) $(WORKDIR):
+compiled $(WORKDIR):
 	mkdir -p $@
-
-.SECONDARY:
-
-$(RACKET_COMPILEDIR)/%:
-	mkdir -p $@
-
-compiled: | $(RACKET_COMPILEDIR)/root
-	ln -sf $| $@
-
-%/compiled: | $(RACKET_COMPILEDIR)/%
-	ln -sf $| $@
-

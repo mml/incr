@@ -5,7 +5,7 @@
 (require racket/match)
 (require racket/trace)
 (require "generators.ss")
-(require "../terminals.ss")
+(require "terminals.ss")
 
 (define (parse-and-rename expr)
   (Expr expr primitives))
