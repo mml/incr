@@ -2,3 +2,5 @@ x-test-program*
 *.o
 .*.swp
 compiled
+/arm32le
+/rv64le

@@ -1,0 +1,7 @@
+#lang racket
+
+(provide c-compiler-path)
+(provide assembler-path)
+
+(define c-compiler-path "${CC}")
+(define assembler-path "${AS}")

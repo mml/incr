@@ -1,0 +1,93 @@
+#!/bin/zsh -f
+
+m=""
+w=""
+: ${CC:='gcc'}
+: ${AS:='as'}
+: ${OBJDUMP:='objdump'}
+
+CONFIG_UNAME=$(uname)
+
+case "${CONFIG_UNAME}" in
+  Linux)
+    if uname -a | grep -q 'x86_64'; then
+      m32=i3le
+      m64=x64le
+    elif uname -a | grep -q -e aarch64 -e armv; then
+      m32=arm32le
+      m64=arm64le
+    elif uname -a | grep -q riscv; then
+      m32=rv32le
+      m64=rv64le
+    fi
+    ;;
+  Darwin)
+    if uname -a | grep -q arm64; then
+      m32=arm32osx
+      m64=arm64osx
+    fi
+    ;;
+esac
+
+bits=
+
+while [[ $# != 0 ]]; do
+  case $1 in
+    --help)
+      help=yes
+      ;;
+    --machine=*)
+      m=${1#*=}
+      ;;
+    --toolprefix=*)
+      toolprefix=${1#*=}
+      CC="${toolprefix}${CC}"
+      AS="${toolprefix}${AS}"
+      OBJDUMP="${toolprefix}${OBJDUMP}"
+      ;;
+    *)
+      echo "option '$1' unrecognized or missing an argument; try $0 --help"
+      exit 64 # EX_USAGE
+      ;;
+  esac
+  shift
+done
+
+if [[ -z "$bits" ]] {
+  bits=32
+}
+
+if [[ -z "$m" ]] {
+  if (( bits == 64 )) {
+    m=$m64
+  } else {
+    m=$m32
+  }
+}
+
+
+if [[ "$help" = "yes" ]] {
+  cat<<EOT
+Purpose:
+  $0 determines the machine type and constructs a custom Makefile
+  and Mf-install, taking into account the options below
+
+Options (defaults shown in parens):
+  --machine=<machine type>              explicitly specify machine type ($m)
+  --toolprefix=<prefix>                 prefix tool (compiler, assembler, ...) names
+EOT
+  exit 0
+}
+
+w=$m
+./workarea $m $w
+
+perl -p -e 's/\${CC}/'$CC'/g;' \
+        -e 's/\${AS}/'$AS'/g;' \
+  < s/config.ss.in > $w/s/config.ss
+
+cat > $w/forensics/config.mk <<EOT
+CC=$CC
+AS=$AS
+OBJDUMP=$OBJDUMP
+EOT

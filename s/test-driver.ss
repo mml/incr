@@ -1,6 +1,7 @@
 #lang racket
 
 (require "compiler.ss")
+(require "config.ss")
 (require racket/trace)
 
 (provide test-cases)
@@ -35,17 +36,17 @@
     (close-output-port p)))
 
 (define (assemble)
-  (let ([cmd (format "arm-linux-gnueabihf-as -g -o ~a ~a" (object-path) (assembly-path))])
+  (let ([cmd (format "~a -g -o ~a ~a" assembler-path (object-path) (assembly-path))])
     #;(printf "~a~n" cmd)
     (unless (system-successful? cmd)
       (error 'as "assemble error"))))
 
 (define (build-driver)
-  (unless (system-successful? (format "arm-linux-gnueabihf-gcc -DNO_NEWLINE -g -o ~a -c ../driver.c" (string-append (output-dir) "/driver.o")))
+  (unless (system-successful? (format "~a -DNO_NEWLINE -g -o ~a -c ../../driver.c" c-compiler-path (string-append (output-dir) "/driver.o")))
     (error 'gcc "build error")))
 
 (define (build)
-  (unless (system-successful? (format "arm-linux-gnueabihf-gcc -DNO_NEWLINE -static -g -o ~a ~a ~a" (program-path) (string-append (output-dir) "/driver.o") (object-path)))
+  (unless (system-successful? (format "~a -DNO_NEWLINE -static -g -o ~a ~a ~a" c-compiler-path (program-path) (string-append (output-dir) "/driver.o") (object-path)))
     (error 'gcc "build error")))
 
 (define (execute)

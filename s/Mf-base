@@ -3,8 +3,9 @@ WORKDIR = out
 TARGET = $(WORKDIR)/x-test-program
 OBJECT = $(WORKDIR)/x-test-program.o
 ASSEMBLY = $(WORKDIR)/x-test-program.s
+SRCS = $(shell cd ../../s; echo *.ss)
 zo_file = $(dir $(1))compiled/$(patsubst %.ss,%_ss.zo,$(notdir $(1)))
-ZO_FILES = $(foreach file,$(wildcard *.ss),$(call zo_file,$(file)))
+ZO_FILES = $(foreach file,$(SRCS),$(call zo_file,$(file)))
 
 .PHONY: test unit debug dump raco cat edit clean realclean zo
 
@@ -26,6 +27,8 @@ cat: $(ASSEMBLY)
 edit: $(ASSEMBLY)
 	$(EDITOR) $<
 
+$(SRCS):
+	ln -s ../../s/$@
 
 ### A nasty mess showing how to do byte compilation.
 zo: $(ZO_FILES)

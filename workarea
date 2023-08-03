@@ -1,0 +1,42 @@
+#!/bin/zsh -f
+
+if [ $# != 1 -a $# != 2 ]; then
+  echo "Usage: workarea <machine-type> { <workarea name> }"
+  exit 64
+fi
+
+M=$1
+if [[ -z "$2" ]] {
+  W=$M
+} else {
+  W=$2
+}
+
+case "$M" in
+  arm32le) ;;
+  rv64le) ;;
+  *) echo "Unrecognized machine name $M"; exit 1 ;;
+esac
+
+workln() {
+  if [ ! -e $2 -a -e $1 ]; then
+    ln -s $1 $2
+  fi
+}
+
+mkdir -p $W
+mkdir -p $W/forensics
+(
+  cd $W/forensics
+  workln ../../forensics/Mf-$M Mf-$M
+  workln Mf-$M Makefile
+  workln ../../forensics/Mf-base Mf-base
+)
+
+mkdir -p $W/s
+(
+  cd $W/s
+  workln ../../s/Mf-$M Mf-$M
+  workln Mf-$M Makefile
+  workln ../../s/Mf-base Mf-base
+)
