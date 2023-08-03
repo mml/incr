@@ -1,0 +1,41 @@
+include config.mk
+
+SRCS = $(shell cd ../../forensics; echo *.c)
+RUN_SRCS = sizes.c align.c
+
+OBJ_TARGETS = $(patsubst %.c,%.s,$(SRCS)) $(patsubst %.c,%.dump,$(SRCS))
+RUN_TARGETS = $(patsubst %.c,%,$(RUN_SRCS))
+RUN_OUTPUTS = $(patsubst %,%.out,$(RUN_TARGETS))
+SAVE = $(OBJ_TARGETS) $(RUN_OUTPUTS)
+SAVEDIR = ../../forensics/$(MACH)
+
+TARGETS = $(OBJ_TARGETS) $(RUN_TARGETS)
+
+.PHONY: all run clean test
+all: $(TARGETS)
+
+run: $(RUN_TARGETS)
+	@for target in $(RUN_TARGETS); do \
+		echo ./$$target; \
+		./$$target; \
+	done
+
+out: $(RUN_OUTPUTS)
+
+%.out: %
+	./$< | tee $@
+
+save: $(SAVE) | $(SAVEDIR)
+	cp $^ $(SAVEDIR)
+
+$(SAVEDIR):
+	mkdir $@
+
+clean:
+	rm -f $(TARGETS)
+
+test: scheme_entry.out
+	./$<
+
+$(SRCS):
+	ln -s ../../forensics/$@

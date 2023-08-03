@@ -1,0 +1,17 @@
+MACH = rv64le
+
+C = $(CC) $(CPPFLAGS) -DRV64LE $(CFLAGS)
+
+%.s: %.c
+	$(C) -O3 --omit-frame-pointer -S -o $@ $<
+
+%.o: %.s
+	$(AS) -o $@ $<
+
+%.dump: %.o
+	$(OBJDUMP) -D $< > $@
+
+%: %.o
+	$(CC) -static -o $@ $<
+
+include Mf-base
