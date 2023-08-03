@@ -41,7 +41,7 @@
       (error 'as "assemble error"))))
 
 (define (build-driver)
-  (unless (system-successful? (format "arm-linux-gnueabihf-gcc -DNO_NEWLINE -g -o ~a -c driver.c" (string-append (output-dir) "/driver.o")))
+  (unless (system-successful? (format "arm-linux-gnueabihf-gcc -DNO_NEWLINE -g -o ~a -c ../driver.c" (string-append (output-dir) "/driver.o")))
     (error 'gcc "build error")))
 
 (define (build)
