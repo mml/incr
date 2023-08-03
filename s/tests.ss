@@ -263,7 +263,7 @@
       (test-case 65535 "65535")
       (test-case -1 "-1"))
 
-    (test-cases skip "Non-integer immediates"
+    (test-cases "Non-integer immediates"
       ; booleans
       (test-case #t "#t")
       (test-case #f "#f")

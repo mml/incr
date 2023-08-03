@@ -4,7 +4,7 @@
 
 (require racket/match)
 (require racket/trace)
-(require "compile-params.ss")
+(require "compile-shared.ss")
 (require "passes.ss")
 (require "machine.ss")
 

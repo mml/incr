@@ -1,6 +1,6 @@
 #lang racket
 
-(require "compile-params.ss")
+(require "compile-shared.ss")
 (require "compiler.ss")
 (require "config.ss")
 (require racket/trace)

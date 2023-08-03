@@ -3,7 +3,7 @@
 (provide emit-prologue)
 (provide emit-Labels)
 (provide emit-epilogue)
-(require "compile-params.ss")
+(require "compile-shared.ss")
 
 (define (shift n-bits val)
   (arithmetic-shift val n-bits))
@@ -62,6 +62,15 @@
 
 (define (immediate-rep x)
   (cond [(integer? x) (shift fixnum-shift x)]
+        [(boolean? x)
+         (case x
+           [(#f) (constant false-value)]
+           [(#t) (constant true-value)])]
+        [(char? x)
+         (bitwise-or
+           (shift (constant char-shift) (char->integer x))
+           (constant char-tag))]
+        [(null? x) (constant null-value)]
         [else (error 'compile-program "Unsupported immediate ~s" (pretty-format x))]))
 
 (define (emit-begin-function name)
