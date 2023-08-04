@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <err.h>
 #include <sys/mman.h>
+#include "machine.h"
 
 #define FIXNUM_MASK 3
 #define FIXNUM_TAG 0
@@ -19,13 +20,17 @@
 #define NULL_VALUE 0b00111111
 
 #define VECTOR_TAG 0b010
-#define ADDRESS_MASK 0xfffffff8
 
 #define PAIR_TAG 0b001
 
+#ifndef PTR_T
+#define ADDRESS_MASK 0xfffffff8
+typedef int ptr_t;
+#endif
+
 extern int scheme_entry();
-void print_ptr(int);
-void print_cdr(int);
+void print_ptr(ptr_t);
+void print_cdr(ptr_t);
 
 static char* allocate_protected_space(int size){
   int page = getpagesize();
@@ -59,21 +64,21 @@ static void deallocate_protected_space(char* p, int size){
   }
 }
 
-void print_vector(int *addr) {
-  int size = addr[0];
+void print_vector(ptr_t *addr) {
+  ptr_t size = addr[0];
   printf("#(");
-  for (int i = 0; i < size; i++) {
+  for (ptr_t i = 0; i < size; i++) {
     if (i != 0 && i != size) {
       printf(" ");
     }
-    print_ptr((int)addr[i+1]);
+    print_ptr((ptr_t)addr[i+1]);
   }
   printf(")");
 }
 
-void print_pair(int *addr) {
-  int car = addr[0];
-  int cdr = addr[1];
+void print_pair(ptr_t *addr) {
+  ptr_t car = addr[0];
+  ptr_t cdr = addr[1];
 
   printf("(");
   print_ptr(car);
@@ -81,13 +86,13 @@ void print_pair(int *addr) {
   printf(")");
 }
 
-void print_cdr(int cdr) {
+void print_cdr(ptr_t cdr) {
   if (cdr == NULL_VALUE) {
     return;
   } else if (cdr & PAIR_TAG) {
-    int *addr = (int *)(cdr & ADDRESS_MASK);
-    int cadr = addr[0];
-    int cddr = addr[1];
+    ptr_t *addr = (ptr_t *)(cdr & ADDRESS_MASK);
+    ptr_t cadr = addr[0];
+    ptr_t cddr = addr[1];
     printf(" ");
     print_ptr(cadr);
     print_cdr(cddr);
@@ -97,7 +102,7 @@ void print_cdr(int cdr) {
   }
 }
 
-void print_ptr(int val) {
+void print_ptr(ptr_t val) {
   if (val == NULL_VALUE) {
     printf("()");
 	} else if (val == FALSE_VALUE) {
@@ -110,9 +115,9 @@ void print_ptr(int val) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);
   } else if (val & VECTOR_TAG) {
-    print_vector((int *)(val & ADDRESS_MASK));
+    print_vector((ptr_t *)(val & ADDRESS_MASK));
   } else if (val & PAIR_TAG) {
-    print_pair((int *)(val & ADDRESS_MASK));
+    print_pair((ptr_t *)(val & ADDRESS_MASK));
 	} else {
 		errx(1, "Unknown value 0x%04x\n", val);
 	}
@@ -123,7 +128,7 @@ int main(int argc, char **argv) {
   char *heap_base = allocate_protected_space(heap_size);
   char *heap_top = heap_base + heap_size;
 
-	int val = scheme_entry(heap_base);
+  ptr_t val = scheme_entry(heap_base);
   print_ptr(val);
 
 #ifndef NO_NEWLINE

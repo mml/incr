@@ -47,4 +47,6 @@ mkdir -p $W/c
 (
   cd $W/c
   workln ../../c/driver.c driver.c
+  workln ../../c/$M.h $M.h
+  workln $M.h machine.h
 )
