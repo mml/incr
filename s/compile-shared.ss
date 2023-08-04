@@ -68,6 +68,8 @@
 (define-constant char-shift 8)
 (define-constant null-value #b00111111)
 (define-constant fixnum-shift 2)
+(define-constant pair-tag #b001)
+(define-constant vector-tag #b010)
 
 (define primcall-op car)
 (define primcall-operand1

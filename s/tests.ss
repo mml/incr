@@ -448,7 +448,7 @@
                       (not (not (not (not b))))))
                  "#t"))
 
-    (test-cases skip "cons"
+    (test-cases "cons"
       (test-case (car (cons 10 20)) "10")
       (test-case (cdr (cons 10 20)) "20")
       (test-case (car (cons 10 (cons 15 20))) "10")

@@ -136,8 +136,6 @@
 (define fixnum-clear #b11)
 (define boolean-mask #b10111111)
 (define boolean-tag  #b00101111)
-(define pair-tag #b001)
-(define vector-tag #b010)
 (define closure-tag #b110)
 
 ;;; Register roles
@@ -404,7 +402,7 @@
      (emit "  str r0, [~a,#~a]" heap-register (wordsize)) ; store cdr
      (emit "  ldr r0, [sp,#~a]" si) ; recover car
      (emit "  str r0, [~a]" heap-register)
-     (emit "  add r0,~a,#~a" heap-register pair-tag)
+     (emit "  add r0,~a,#~a" heap-register (constant pair-tag))
      (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))]
     [(make-vector) ; using only r0 and r1... could be more efficient
      (emit "  @ make-vector{{{")
@@ -429,7 +427,7 @@
        (emit-b 'always loop) ;
        (emit-label break))
      (emit "  ldr r0, [sp,#~a]" (- si (wordsize)) (// "restore pointer to vector"))
-     (emit "  orr r0,r0,#~a" vector-tag           (// "tag vector"))
+     (emit "  orr r0,r0,#~a" (constant vector-tag)           (// "tag vector"))
      (emit "  @ make-vector}}}")]
     ))
 
@@ -439,7 +437,7 @@
      (emit "/* vector-set!{{{ */")
      (with-saved-registers [si ("r4" "r5")]
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "  BIC r4,r0, #~a" vector-tag      (// "clear vector tag"))
+       (emit "  BIC r4,r0, #~a" (constant vector-tag)      (// "clear vector tag"))
        (emit-expr (primcall-operand2 expr) si env)
        (emit "  LSR r5,r0,#~a" (constant fixnum-shift)     (// "offset fixnum->int"))
        (emit "  add r5,r5,#1"                   (// "skip over vector size"))
@@ -542,33 +540,33 @@
      (emit "  mul r0,r0,r1")]
     [(car)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
+     (emit "  ldr r0,[r0,#~a]" (- (constant pair-tag)))]
     [(cdr)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))]
+     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))]
     [(cadr)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
-     (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
+     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
+     (emit "  ldr r0,[r0,#~a]" (- (constant pair-tag)))]
     [(cddr)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))]
+     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
+     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))]
     [(caddr)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) pair-tag))
-     (emit "  ldr r0,[r0,#~a]" (- pair-tag))]
+     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
+     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
+     (emit "  ldr r0,[r0,#~a]" (- (constant pair-tag)))]
     [(vector-length)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  BIC r0,r0, #~a" vector-tag)
+     (emit "  BIC r0,r0, #~a" (constant vector-tag))
      (emit "  ldr r0, [r0]")
      (emit "  lsl r0, #~a" (constant fixnum-shift) (// "int->fixnum"))]
     [(vector-ref)
      (emit "  @ vector-ref{{{")
      (with-saved-registers [si ("r4")]
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "  BIC r4,r0,#~a" vector-tag   (// "clear vector tag"))
+       (emit "  BIC r4,r0,#~a" (constant vector-tag)   (// "clear vector tag"))
        (emit-expr (primcall-operand2 expr) si env) ; offset in r0
        (emit "  LSR r1,r0,#~a" (constant fixnum-shift) (// "offset fixnum->int"))
        (emit "  add r1,r1,#1"               (// "skip over vector size"))
