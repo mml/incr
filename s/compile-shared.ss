@@ -11,6 +11,10 @@
 (provide primcall-op)
 (provide primcall-operand1)
 (provide primcall-operand2)
+(provide lhs)
+(provide rhs)
+(provide extend-env)
+(provide lookup)
 
 (define scramble-link-register?
   (make-parameter #f))
@@ -52,6 +56,11 @@
 (define (shift n-bits val)
   (arithmetic-shift val n-bits))
 
+(define (extend-env name index env)
+  (cons (cons name index) env))
+(define lhs car)
+(define rhs cadr)
+
 (define-constant false-value (bitwise-or #b1111 (shift 4 #b0010)))
 (define-constant true-value (bitwise-or #b1111 (shift 4 #b0110)))
 (define-constant char-mask #b11111111)
@@ -73,6 +82,11 @@
     [(expr default) (if (null? (cddr expr))
                         default
                         (primcall-operand2 expr))]))
+(define (lookup x env)
+  (cond
+    [(assq x env) => cdr]
+    [else #f]))
+
 
 
 

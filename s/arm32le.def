@@ -131,13 +131,6 @@
 (define (wordsize-shift) 2)
 (define (cellsize) (* 2 wordsize))
 (define (empty-env) '())
-(define (extend-env name index env)
-  (cons (cons name index) env))
-(define (lookup x env)
-  (cond
-    [(assq x env) => cdr]
-    [else #f]))
-
 ;;; Fixnums end in #b00.
 ;;; All other integral types end in #b1111
 (define fixnum-clear #b11)
@@ -247,8 +240,6 @@
 (define (let-body expr)
   `(begin ,@(cddr expr)))
 (define begin-exprs cdr)
-(define lhs car)
-(define rhs cadr)
 
 (define (if? x)
   (and (list? x)

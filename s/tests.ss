@@ -231,7 +231,7 @@
                  "20")
       )
 
-    (test-cases skip "begin"
+    (test-cases "begin"
       (test-case (begin 0) "0")
       (test-case (begin 0 10) "10"))
 
@@ -401,7 +401,7 @@
       (test-case (bitwise-arithmetic-shift -65536 -32) "-1")
       )
 
-    (test-cases skip "let"
+    (test-cases "let"
       (test-case (let ([b 10]) b) "10")
       (test-case (let ([b 10])
                     (let ([b (+ b b)])
