@@ -11,6 +11,7 @@
 (provide primcall-op)
 (provide primcall-operand1)
 (provide primcall-operand2)
+(provide primcall-operand3)
 (provide lhs)
 (provide rhs)
 (provide extend-env)
@@ -84,6 +85,9 @@
     [(expr default) (if (null? (cddr expr))
                         default
                         (primcall-operand2 expr))]))
+
+(define primcall-operand3 cadddr)
+
 (define (lookup x env)
   (cond
     [(assq x env) => cdr]

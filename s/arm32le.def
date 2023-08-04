@@ -247,7 +247,6 @@
 (define if-conseq caddr)
 (define if-altern cadddr)
 
-(define primcall-operand3 cadddr)
 
 (define (labelcall? x)
   (eq? 'labelcall (car x)))

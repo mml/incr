@@ -8,6 +8,7 @@
 ;;; https://riscv.org/wp-content/uploads/2015/01/riscv-calling.pdf
 ;;; https://en.wikichip.org/wiki/risc-v/registers
 (define-constant wordsize 8)
+(define-constant wordsize-shift 3)
 (define-constant heap-register "s11") ; aka x27, highest numbered callee-saved register
 
 ; TODO: maybe make a fresh on one each compile-program invocation?
@@ -118,38 +119,57 @@
      (emit "  sd a0, (~a)" (constant heap-register))
      (emit "  add a0,~a,~a" (constant heap-register) (constant pair-tag))
      (emit "  add ~a,~a,~a" (constant heap-register) (constant heap-register) (* 2 (constant wordsize)))]
-    [(make-vector) ; using only r0 and r1... could be more efficient
-     (emit "  @ make-vector{{{")
+    [(make-vector)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  lsr r0, #~a" (constant fixnum-shift) #;(// "fixnum->int"))
-     (emit "  str r0, [sp,#~a]" si      #;(// "save size on stack"))
-     (emit "  lsl r0, #~a" (constant wordsize)   #;(// "<< (constant wordsize)"))
-     (emit "  add r0, r0, #11"          #;(// "align size to next"))
-     (emit "  and r0, r0, #-8"          #;(// "   object boundary"))
-     (emit "  str ~a, [sp,#~a]" (constant heap-register) (- si (constant wordsize))) ; save address on stack
-     (emit "  add ~a,~a,r0" (constant heap-register) (constant heap-register))
+     (emit "  srai a0,a0,~a" (constant fixnum-shift))
+     (emit "  sd a0,~a(sp)" si)
+     (emit "  slli a0,a0, ~a" (constant wordsize))
+     (emit "  add a0, a0, 11") ; align to next (8-byte)
+     (emit "  and a0, a0, -8") ; object boundary
+     (emit "  sd ~a, ~a(sp)" (constant heap-register) (- si (constant wordsize))) ; save address on stack
+     (emit "  add ~a,~a,a0" (constant heap-register) (constant heap-register)) ; increment heap register
      (emit-expr (primcall-operand2 expr (shift (- (constant fixnum-shift)) #xdead0))
                 (- si (constant wordsize) (constant wordsize)) env) ; r0 = initial value
-     (emit "  ldr r2, [sp,#~a]" (- si (constant wordsize)) #;(// "pointer to vector"))
-     (emit "  ldr r1, [sp,#~a]" si                #;(// "size"))
-     (emit "  str r1, [r2],#~a" (constant wordsize)        #;(// "write size"))
+     (emit "  ld t3, ~a(sp)" (- si (constant wordsize)) #;(// "pointer to vector"))
+     (emit "  ld a1, ~a(sp)" si                #;(// "size"))
+     (emit "  sd a1, (t3)"         #;(// "write size"))
+     (emit "  li t4, 1")
      (let ([loop (unique-label "loop")] [break (unique-label "break")])
        (emit-label loop)
-       (emit "  subs r1,r1,#1") ; decrement r1
-       #;(emit-b 'mi break) ; if r1 < 0 goto break
-       (emit "  str r0, [r2],#~a" (constant wordsize)) ; initialize word
-       #;(emit-b 'always loop) ;
+       (emit "  sub a1,a1,t4") ; decrement r1
+       (emit "  blt a1,zero, ~a" break) ; if r1 < 0 goto break
+       (emit "  sd a0, ~a(t3)" (constant wordsize)) ; initialize word
+       (emit "  j ~a" loop)
        (emit-label break))
-     (emit "  ldr r0, [sp,#~a]" (- si (constant wordsize)) #;(// "restore pointer to vector"))
-     (emit "  orr r0,r0,#~a" (constant vector-tag)           #;(// "tag vector"))
-     (emit "  @ make-vector}}}")]
+     (emit "  ld a0, ~a(sp)" (- si (constant wordsize)) #;(// "restore pointer to vector"))
+     (emit "  or a0,a0,~a" (constant vector-tag)           #;(// "tag vector"))
+           ]
     ))
+
+(define (emit-side-effect-primcall op expr si env)
+  (case op
+    ; TODO: pick better registers here -- not recursion safe!
+    [(vector-set!) ; vec n obj
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  li t0,~a" (bitwise-not (constant vector-tag)))
+     (emit "  and t1,a0,t0") ; clear vector tag (TODO -- can reuse t0 from above)
+     (emit-expr (primcall-operand2 expr) si env)
+     (emit "  srai t2,a0,~a" (constant fixnum-shift))
+     (emit "  addi t2,t2,1") ; skip over vector size
+     (emit "  slli t2,t2,~a" (constant wordsize-shift)) ; multiply by wordsize
+     (emit "  add  t1,t1,t2") ; add index
+     (emit-expr (primcall-operand3 expr) si env) ; value in a0
+     (emit "  sd a0, (t1)")]
+    [else (error 'compile-program
+                 "Unsupported primcall ~s in ~s" (pretty-format op) (pretty-format expr))]))
 
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
     (case op
       [(cons make-vector)
        (emit-allocation-primcall op expr si env)]
+      [(vector-set!)
+       (emit-side-effect-primcall op expr si env)]
       [(add1)
        (emit-expr (primcall-operand1 expr) si env)
        (emit "addiw a0,a0,~a" (immediate-rep 1))]
@@ -308,6 +328,12 @@
        (emit "  ld a0,~a(a0)" (constant wordsize))
        (emit "  sub a0,a0,a1")
        (emit "  ld a0,(a0)")]
+      [(vector-length)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  li a1,~a" (bitwise-not (constant vector-tag)))
+       (emit "  and a0,a0,a1")
+       (emit "  ld a0, (a0)")
+       (emit "  slli a0,a0, ~a" (constant fixnum-shift))]
 
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
