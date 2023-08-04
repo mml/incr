@@ -5,9 +5,8 @@
 (provide emit-epilogue)
 (require "compile-shared.ss")
 
-(define (shift n-bits val)
-  (arithmetic-shift val n-bits))
-(define fixnum-shift 2)
+(define-constant wordsize 4)
+
 ; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
   (let ([x 0])
@@ -52,7 +51,7 @@
 
 (define (emit-scheme-entry expr env)
   (emit-begin-function "scheme_entry")
-  (emit-expr expr #xdeadbeef env) ; TODO: Stack index
+  (emit-expr expr (- 0 (constant wordsize)) env) ; TODO: Stack index
   (emit-label "scheme_return")
   (emit "  ret")
   (emit-end-function "scheme_entry"))
@@ -106,15 +105,95 @@
          (emit-label L-end))]
       [(integer->char)
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "slli a0,a0,~a" (- (constant char-shift) fixnum-shift))
+       (emit "slli a0,a0,~a" (- (constant char-shift) (constant fixnum-shift)))
        (emit "ori  a0,a0,~a" (constant char-tag))]
       [(char->integer)
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "srai a0,a0,~a" (- (constant char-shift) fixnum-shift))]
+       (emit "srai a0,a0,~a" (- (constant char-shift) (constant fixnum-shift)))]
+      [(+)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "sw a0,~a(sp)" si)
+       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+       (emit "lw a1,~a(sp)" si)
+       (emit "addw a0,a0,a1")]
+      [(-)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "sw a0,~a(sp)" si)
+       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+       (emit "lw a1,~a(sp)" si)
+       (emit "subw a0,a1,a0")]
+      [(=)
+       (let ([L-operands-equal (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sw a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "lw a1,~a(sp)" si)
+         (emit "  beq a0,a1, ~a" L-operands-equal)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" L-end)
+         (emit-label L-operands-equal)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label L-end))]
+      [(<)
+       (let ([L-return-true (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sw a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "lw a1,~a(sp)" si)
+         (emit "  blt a1,a0, ~a" L-return-true)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" L-end)
+         (emit-label L-return-true)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label L-end))]
+      [(*)
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "sw a0,~a(sp)" si)
+       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+       (emit "lw a1,~a(sp)" si)
+       (emit "srai a0,a0,~a" (constant fixnum-shift))
+       (emit "mul a0,a0,a1")]
+      [(bitwise-arithmetic-shift-left bitwise-arithmetic-shift)
+       (let ([L-negative-operand (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sw a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "lw a1,~a(sp)" si)
+         (emit "srai a0,a0,~a" (constant fixnum-shift))
+         (emit "srai a1,a1,~a" (constant fixnum-shift))
+         (emit "blt a0,zero,~a" L-negative-operand)
+         (emit "sll a0,a1,a0")
+         (emit "j ~a" L-end)
+         (emit-label L-negative-operand)
+         (emit "sub a0,zero,a0")
+         (emit "sra a0, a1, a0")
+         (emit-label L-end)
+         (emit "sll a0,a0,~a" (constant fixnum-shift)))]
+      [(bitwise-arithmetic-shift-right)
+       (let ([L-negative-operand (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sw a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "lw a1,~a(sp)" si)
+         (emit "srai a0,a0,~a" (constant fixnum-shift))
+         (emit "srai a1,a1,~a" (constant fixnum-shift))
+         (emit "blt a0,zero,~a" L-negative-operand)
+         (emit "sra a0, a1, a0")
+         (emit "j ~a" L-end)
+         (emit-label L-negative-operand)
+         (emit "sub a0,zero,a0")
+         (emit "sll a0,a1,a0")
+         (emit-label L-end))
+         (emit "slli a0,a0,~a" (constant fixnum-shift))]
+
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
 (define (immediate-rep x)
-  (cond [(integer? x) (shift fixnum-shift x)]
+  (cond [(integer? x) (shift (constant fixnum-shift) x)]
         [(boolean? x)
          (case x
            [(#f) (constant false-value)]

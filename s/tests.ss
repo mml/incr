@@ -316,7 +316,7 @@
       (test-case (integer->char (add1 (char->integer #\l))) "#\\m")
       )
 
-    (test-cases skip "Binary primitives"
+    (test-cases "Binary primitives"
       ; +
       (test-case (+ 2 2) "4")
       (test-case (+ 0 0) "0")

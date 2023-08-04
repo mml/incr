@@ -10,6 +10,7 @@
 (provide shift)
 (provide primcall-op)
 (provide primcall-operand1)
+(provide primcall-operand2)
 
 (define scramble-link-register?
   (make-parameter #f))
@@ -57,6 +58,7 @@
 (define-constant char-tag #b00001111)
 (define-constant char-shift 8)
 (define-constant null-value #b00111111)
+(define-constant fixnum-shift 2)
 
 (define primcall-op car)
 (define primcall-operand1
@@ -65,6 +67,13 @@
     [(expr default) (if (null? (cdr expr))
                         default
                         (primcall-operand1 expr))]))
+(define primcall-operand2
+  (case-lambda
+    [(expr) (caddr expr)]
+    [(expr default) (if (null? (cddr expr))
+                        default
+                        (primcall-operand2 expr))]))
+
 
 
 (module+ test

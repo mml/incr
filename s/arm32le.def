@@ -140,7 +140,6 @@
 
 ;;; Fixnums end in #b00.
 ;;; All other integral types end in #b1111
-(define fixnum-shift 2)
 (define fixnum-clear #b11)
 (define boolean-mask #b10111111)
 (define boolean-tag  #b00101111)
@@ -259,20 +258,13 @@
 (define if-conseq caddr)
 (define if-altern cadddr)
 
-(define primcall-operand2
-  (case-lambda
-    [(expr) (caddr expr)]
-    [(expr default) (if (null? (cddr expr))
-                        default
-                        (primcall-operand2 expr))]))
-
 (define primcall-operand3 cadddr)
 
 (define (labelcall? x)
   (eq? 'labelcall (car x)))
 
 (define (immediate-rep x)
-  (cond [(integer? x) (shift fixnum-shift x)]
+  (cond [(integer? x) (shift (constant fixnum-shift) x)]
         [(boolean? x)
          (case x
            [(#f) (constant false-value)]
@@ -426,14 +418,14 @@
     [(make-vector) ; using only r0 and r1... could be more efficient
      (emit "  @ make-vector{{{")
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  lsr r0, #~a" fixnum-shift (// "fixnum->int"))
+     (emit "  lsr r0, #~a" (constant fixnum-shift) (// "fixnum->int"))
      (emit "  str r0, [sp,#~a]" si      (// "save size on stack"))
      (emit "  lsl r0, #~a" (wordsize)   (// "<< wordsize"))
      (emit "  add r0, r0, #11"          (// "align size to next"))
      (emit "  and r0, r0, #-8"          (// "   object boundary"))
      (emit "  str ~a, [sp,#~a]" heap-register (- si (wordsize))) ; save address on stack
      (emit "  add ~a,~a,r0" heap-register heap-register)
-     (emit-expr (primcall-operand2 expr (shift (- fixnum-shift) #xdead0))
+     (emit-expr (primcall-operand2 expr (shift (- (constant fixnum-shift)) #xdead0))
                 (- si (wordsize) (wordsize)) env) ; r0 = initial value
      (emit "  ldr r2, [sp,#~a]" (- si (wordsize)) (// "pointer to vector"))
      (emit "  ldr r1, [sp,#~a]" si                (// "size"))
@@ -458,7 +450,7 @@
        (emit-expr (primcall-operand1 expr) si env)
        (emit "  BIC r4,r0, #~a" vector-tag      (// "clear vector tag"))
        (emit-expr (primcall-operand2 expr) si env)
-       (emit "  LSR r5,r0,#~a" fixnum-shift     (// "offset fixnum->int"))
+       (emit "  LSR r5,r0,#~a" (constant fixnum-shift)     (// "offset fixnum->int"))
        (emit "  add r5,r5,#1"                   (// "skip over vector size"))
        (emit "  LSL r5,r5,#~a" (wordsize-shift) (// "multiply by wordsize"))
        (emit-expr (primcall-operand3 expr) si env) ; value in r0
@@ -485,7 +477,7 @@
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) si env)
      (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  ASRS r0,r0,#~a" fixnum-shift (// "fixnum->int"))
+     (emit "  ASRS r0,r0,#~a" (constant fixnum-shift) (// "fixnum->int"))
      (emit "  LSLPL r0,r1,r0")
      (emit "  RSBMI r0,r0,#0")
      (emit "  ASRMI r0,r1,r0")
@@ -495,7 +487,7 @@
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) si env)
      (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  ASRS r0,r0,#~a" fixnum-shift (// "fixnum->int"))
+     (emit "  ASRS r0,r0,#~a" (constant fixnum-shift) (// "fixnum->int"))
      (emit "  ASRPL r0,r1,r0")
      (emit "  BICPL r0,r0,#~a" fixnum-clear)
      (emit "  RSBMI r0,r0,#0")
@@ -517,11 +509,11 @@
      (emit-move32 'ne "r0" (immediate-rep #f))]
     [(integer->char)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "lsl r0,r0,#~a" (- (constant char-shift) fixnum-shift))
+     (emit "lsl r0,r0,#~a" (- (constant char-shift) (constant fixnum-shift)))
      (emit "orr r0,r0,#~a" (constant char-tag))]
     [(char->integer)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "asr r0,r0,#~a" (- (constant char-shift) fixnum-shift))]
+     (emit "asr r0,r0,#~a" (- (constant char-shift) (constant fixnum-shift)))]
     [(+)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
@@ -555,7 +547,7 @@
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  asr r0,r0,#~a" fixnum-shift) ; Can we combine with ldr?
+     (emit "  asr r0,r0,#~a" (constant fixnum-shift)) ; Can we combine with ldr?
      (emit "  mul r0,r0,r1")]
     [(car)
      (emit-expr (primcall-operand1 expr) si env)
@@ -580,14 +572,14 @@
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  BIC r0,r0, #~a" vector-tag)
      (emit "  ldr r0, [r0]")
-     (emit "  lsl r0, #~a" fixnum-shift (// "int->fixnum"))]
+     (emit "  lsl r0, #~a" (constant fixnum-shift) (// "int->fixnum"))]
     [(vector-ref)
      (emit "  @ vector-ref{{{")
      (with-saved-registers [si ("r4")]
        (emit-expr (primcall-operand1 expr) si env)
        (emit "  BIC r4,r0,#~a" vector-tag   (// "clear vector tag"))
        (emit-expr (primcall-operand2 expr) si env) ; offset in r0
-       (emit "  LSR r1,r0,#~a" fixnum-shift (// "offset fixnum->int"))
+       (emit "  LSR r1,r0,#~a" (constant fixnum-shift) (// "offset fixnum->int"))
        (emit "  add r1,r1,#1"               (// "skip over vector size"))
        (emit "  LSL r1,r1,#~a" (wordsize-shift) (// "multiply by wordsize"))
        (emit "  ldr r0, [r4,r1]"            (// "dereference and return")))
