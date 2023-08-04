@@ -16,6 +16,14 @@
           v)
         "#(0 20 0 0 0)")
       (test-case
+        (let ([v (make-vector 5 0)]
+              [u (make-vector 5 10)])
+          (vector-set! v 1 (begin
+                             (vector-set! u 3 30)
+                             20))
+          v)
+        "#(0 20 0 0 0)")
+      (test-case
         (let ([v (make-vector 5 0)])
           (vector-set! v 0 0)
           (vector-set! v 1 1)
