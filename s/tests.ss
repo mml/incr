@@ -417,7 +417,7 @@
 
       (test-case (let () 10 20) "20"))
 
-    (test-cases skip "if"
+    (test-cases "if"
       (test-case (if #t 20 30) "20")
       (test-case (if (< 0 1) 1 0) "1")
       (test-case (if (< 66 (char->integer #\A)) 9 5) "5")

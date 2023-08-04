@@ -62,6 +62,7 @@
   [`(primcall ,pr ,e* ___) (emit-primitive-call `(,pr ,@e*) si env)]
   [`(let ,bindings ,body) (emit-let bindings body si env)]
   [`(begin ,e* ___) (emit-begin e* si env)]
+  [`(if ,test ,conseq ,altern) (emit-if test conseq altern si env)]
   ))
 
 (define (emit-varref x env)
@@ -89,6 +90,18 @@
           (f (cdr b*)
              (extend-env (lhs b) (cons "sp" si) new-env)
              (- si (constant wordsize))))])))
+
+(define (emit-if test conseq altern si env)
+  (let ([L0 (unique-label)]
+        [L1 (unique-label)])
+    (emit-expr test si env)
+    (emit "  li a1, ~a" (immediate-rep #f))
+    (emit "  beq a0,a1,~a" L0)
+    (emit-expr conseq si env)
+    (emit "  j ~a" L1)
+    (emit-label L0)
+    (emit-expr altern si env)
+    (emit-label L1)))
 
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
