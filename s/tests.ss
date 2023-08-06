@@ -3,9 +3,11 @@
 
   (define (runtests)
 
-    (test-cases skip "vectors"
+    (test-cases "vectors"
       (test-case (make-vector 0 0) "#()")
       (test-case (make-vector 1 0) "#(0)")
+      (test-case (make-vector 2 1) "#(1 1)")
+      (test-case (make-vector 3 2) "#(2 2 2)")
       (test-case (make-vector 10 0) "#(0 0 0 0 0 0 0 0 0 0)")
       (test-case
         (vector-length (make-vector 500 1))
@@ -44,38 +46,47 @@
             (uv v 4)))
         "#(0 1 2 3 4)")
       (test-case
-        (letrec
-          ([size 40]
-           [v (make-vector size #f)]
-           [init (lambda (n)
-                   (cond
-                     [(< n 0)]
-                     [else
-                       (letrec
-                         ([vv (make-vector size #f)]
-                          [setup (lambda (m)
-                                   (cond
-                                     [(< m 0) v]
-                                     [else
-                                       (vector-set! vv m (* m n))
-                                       (setup (sub1 m))]))])
-                          (vector-set! v n vv)
-                          (setup (sub1 size)))
-                       (init (sub1 n))]))])
-          (init (sub1 size))
-          (letrec
-            ([check (lambda (m n)
-                      (if (< m 0)
-                          #t
-                          (and (= (* m n) (vector-ref (vector-ref v m) n))
-                               (= (* m n) (vector-ref (vector-ref v n) m))
-                               (check (sub1 m) n))))]
-             [check* (lambda (n)
-                       (if (< n 0)
+        (make-vector 40 0)
+        "#(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)")
+      (test-case
+        (letrec ([loop (lambda (n v)
+                         (if (zero? n)
                            #t
-                           (and (check (sub1 size) n)
-                                (check* (sub1 n)))))])
-            (check* (sub1 size))))
+                           (loop (sub1 n) (make-vector 40 n))))])
+          (loop 41 #f))
+        "#t")
+      (test-case
+        (let* ([size 40] [v (make-vector size #f)])
+          (letrec
+            ([init (lambda (n)
+                     (cond
+                       [(< n 0)]
+                       [else
+                         (letrec
+                           ([vv (make-vector size #f)]
+                            [setup (lambda (m)
+                                     (cond
+                                       [(< m 0) v]
+                                       [else
+                                         (vector-set! vv m (* m n))
+                                         (setup (sub1 m))]))])
+                            (vector-set! v n vv)
+                            (setup (sub1 size)))
+                         (init (sub1 n))]))])
+            (init (sub1 size))
+            (letrec
+              ([check (lambda (m n)
+                        (if (< m 0)
+                            #t
+                            (and (= (* m n) (vector-ref (vector-ref v m) n))
+                                 (= (* m n) (vector-ref (vector-ref v n) m))
+                                 (check (sub1 m) n))))]
+               [check* (lambda (n)
+                         (if (< n 0)
+                             #t
+                             (and (check (sub1 size) n)
+                                  (check* (sub1 n)))))])
+              (check* (sub1 size)))))
         "#t")
 
       ; Something that takes long enough to be a speed test.
@@ -99,7 +110,7 @@
         "6250000")
       )
 
-    (test-cases skip "macro expansion"
+    (test-cases "macro expansion"
       (test-case (and) "#t")
       (test-case (and 1) "1")
       (test-case (and 1 2) "2")
@@ -161,9 +172,11 @@
         "6")
 
       ;;; Letrec bug
+      ; TODO(mml): both of these should fail with a runtime exception about
+      ; using a variable before it's defined
+      #;(test-case (letrec ([a 10] [b (+ a a)]) (+ a b)) "30")
       #;(test-case
-        (letrec ([size 10000]
-                 [v (make-vector size 1)])
+        (let* ([size 10000] [v (make-vector size 1)])
           (vector-length v))
         "10000")
 
@@ -176,7 +189,7 @@
 
       )
 
-    (test-cases skip "assignment"
+    (test-cases "assignment"
       (test-case
         ((((lambda (x)
              (let ([r #f])
@@ -234,7 +247,7 @@
         "3")
       )
 
-    (test-cases skip "parsing challenges"
+    (test-cases "parsing challenges"
       (test-case ((lambda (lambda) (lambda lambda)) (lambda (let) 20))
                  "20")
       )
@@ -484,7 +497,7 @@
                      '()))
                  "((10 20) (30 40))"))
 
-    (test-cases skip "procedures"
+    (test-cases "procedures"
       (test-case
         (let ([ten (lambda () 10)])
           (ten))
@@ -570,7 +583,7 @@
         "26000")
       )
 
-    (test-cases skip "tail calls"
+    (test-cases "tail calls"
       ; this one does no allocation, so it just pressures stack frames
       (test-case
         (let ([fxid-helper
@@ -593,7 +606,7 @@
         "26000")
       )
 
-    (test-cases skip "closures"
+    (test-cases "closures"
       ; This closes over variables but it has no recursion and no tail calls.
       (test-case
         (let ([incr (lambda (x) (add1 x))])
