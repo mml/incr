@@ -4,4 +4,4 @@ xdebug:
 	qemu-riscv64-static -L /usr/riscv64-linux-gnu -g 9999 out/x-test-program
 
 gdb:
-	(cd $(WORKDIR); gdb-multiarch --eval-command='target remote localhost:9999' ../$(TARGET))
+	(cd $(WORKDIR); gdb-multiarch --quiet --tui -x ../../debug/setup.gdb --eval-command='target remote localhost:9999' ../$(TARGET))
