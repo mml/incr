@@ -16,6 +16,9 @@
 (provide rhs)
 (provide extend-env)
 (provide lookup)
+(provide arg-env)
+(provide clovar-env)
+(provide get-stack-index)
 
 (define scramble-link-register?
   (make-parameter #f))
@@ -62,6 +65,43 @@
 (define lhs car)
 (define rhs cadr)
 
+;;; Scheme procedure calls
+; Our calling convention expects
+; sp-<word> to be empty (we'll save the LR there)
+; sp-<2word> to be a closure object
+; sp-<3word> to be our first argument
+(define get-stack-index
+  (case-lambda
+    [(key)
+     (case key
+       [(link-register) (* -1 (constant wordsize))]
+       [(closure) (* -2 (constant wordsize))])]
+    [(key n)
+     (case key
+       [(arg) (* (constant wordsize) (- -3 n))]
+       [(clovar) (* (constant wordsize) (add1 n))])]))
+
+
+(define (arg-env x* env)
+  (let loop ([x* x*] [arg-count 0] [arg-index (get-stack-index 'arg 0)] [env env])
+    (cond [(null? x*)
+           (values arg-index env)]
+          [else
+            (loop (cdr x*)
+                  (add1 arg-count)
+                  (- arg-index (constant wordsize))
+                  (extend-env (car x*) (cons "sp" arg-index) env))])))
+(define (clovar-env y* env)
+  (let loop ([y* y*] [clovar-count 0] [clovar-index (get-stack-index 'clovar 0)] [env env])
+    (cond [(null? y*)
+           env]
+          [else
+            (loop (cdr y*)
+                  (add1 clovar-count)
+                  (+ clovar-index (constant wordsize))
+                  (extend-env (car y*) (cons (constant closure-register) clovar-index) env))])))
+
+
 (define-constant false-value (bitwise-or #b1111 (shift 4 #b0010)))
 (define-constant true-value (bitwise-or #b1111 (shift 4 #b0110)))
 (define-constant char-mask #b11111111)
@@ -71,6 +111,7 @@
 (define-constant fixnum-shift 2)
 (define-constant pair-tag #b001)
 (define-constant vector-tag #b010)
+(define-constant closure-tag #b110)
 
 (define primcall-op car)
 (define primcall-operand1

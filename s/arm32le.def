@@ -136,7 +136,6 @@
 (define fixnum-clear #b11)
 (define boolean-mask #b10111111)
 (define boolean-tag  #b00101111)
-(define closure-tag #b110)
 
 ;;; Register roles
 ;;; See also https://static.docs.arm.com/ihi0042/j/IHI0042J_2020Q2_aapcs32.pdf
@@ -337,7 +336,7 @@
         (emit-varref (car free*) env)
         (emit "  str r0,[~a,#~a]" heap-register index (// "free variable ~a" (car free*)))
         (loop (cdr free*) (+ index (wordsize)))))
-    (emit "  orr r0,~a,#~a" heap-register closure-tag)
+    (emit "  orr r0,~a,#~a" heap-register (constant closure-tag))
     (emit "  add ~a,~a,#~a" heap-register heap-register size)
     (emit "  @ closure}}}")))
 
@@ -349,14 +348,14 @@
   ; the LR on the stack.  Then we can branch to there instead.
   (emit "  @ tailcall{{{")
   (emit-expr f si env) ; r0 = closure
-  (emit "  BIC r0,r0,#~a" closure-tag      (// "clear tag bits"))
+  (emit "  BIC r0,r0,#~a" (constant closure-tag)      (// "clear tag bits"))
   (emit "  str r0, [sp,#~a]" closure-index (// "put closure on stack"))
   ; We now have to evaluate all arguments and gradually add their values to the stack.
   (let loop ([e* e*] [arg-index arg0-index] [arg-count 0] [si arg0-index])
     (cond
       [(null? e*)
        (emit "  ldr r0,[sp,#~a]" closure-index       (// "load closure into r0"))
-       (emit "  BIC r0,r0,#~a" closure-tag           (// "zero out tag"))
+       (emit "  BIC r0,r0,#~a" (constant closure-tag)           (// "zero out tag"))
        (emit "  LDR r0,[r0]"                         (// "load branch target"))
        (emit "  LDR LR,[sp,#~a]" link-register-index (// "hack to preserve LR"))
        (emit "  bx r0")]
@@ -371,7 +370,7 @@
   (emit "  @ funcall{{{")
   (emit-expr f si env) ; r0 = closure
   (let ([psi si]) ; procedure SI
-    (emit "  BIC r0,r0,#~a" closure-tag              (// "clear tag bits"))
+    (emit "  BIC r0,r0,#~a" (constant closure-tag)              (// "clear tag bits"))
     (emit "  str r0, [sp,#~a]" (+ psi closure-index) (// "put closure on stack"))
     (let loop ([e* e*] [arg-index (+ psi arg0-index)] [arg-count 0] [si (+ psi arg0-index)])
       (cond

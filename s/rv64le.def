@@ -9,6 +9,8 @@
 ;;; https://en.wikichip.org/wiki/risc-v/registers
 (define-constant wordsize 8)
 (define-constant wordsize-shift 3)
+(define closure-register "s10") ; aka x27, highest numbered callee-saved register
+(define-constant closure-register closure-register)
 (define-constant heap-register "s11") ; aka x27, highest numbered callee-saved register
 
 ; TODO: maybe make a fresh on one each compile-program invocation?
@@ -43,7 +45,7 @@
       (emit-scheme-entry body env))]))
 
 (define (emit-Def* x* code*)
-  (let ([env (map (lambda (x) (cons x (unique-label))) x*)])
+  (let ([env (map (lambda (x) (cons x (unique-label (string-append "C" (symbol->string x) "_")))) x*)])
     (let loop ([x* x*] [code* code*])
       (cond [(null? x*) env]
             [else
@@ -51,13 +53,30 @@
               (loop (cdr x*) (cdr code*))]))))
 
 (define (emit-Def x code env)
-  (error 'unimplemented))
+  (emit-label (lookup x env))
+  (emit-Code code env))
+
+(define (emit-Code code env) (match code
+  [`(code (,x* ___) (,y* ___) ,body) ; free variables not implemented yet
+    (emit "  sd ra,~a(sp)" (get-stack-index 'link-register))
+    (emit "  ld ~a, ~a(sp)" closure-register (get-stack-index 'closure))
+    ; load closure address
+    (let-values ([(si env) (arg-env x* env)])
+      (let ([env (clovar-env y* env)])
+        (emit-expr body si env)))
+    (emit "  ld ra,~a(sp)" (get-stack-index 'link-register)) ; restore LR
+    (emit "  jr ra")
+    ]))
 
 (define (emit-scheme-entry expr env)
   (emit-begin-function "scheme_entry")
+  (emit "  addi sp,sp,-~a" (constant wordsize))
+  (emit "  sd ra,~a(sp)" (constant wordsize))
   (emit "  add ~a,a0,0" (constant heap-register)) ; Save heap base
   (emit-expr expr (- 0 (constant wordsize)) env)
   (emit-label "scheme_return")
+  (emit "  ld ra,~a(sp)" (constant wordsize))
+  (emit "  addi sp,sp,~a" (constant wordsize))
   (emit "  ret")
   (emit-end-function "scheme_entry"))
 
@@ -68,6 +87,9 @@
   [`(let ,bindings ,body) (emit-let bindings body si env)]
   [`(begin ,e* ___) (emit-begin e* si env)]
   [`(if ,test ,conseq ,altern) (emit-if test conseq altern si env)]
+  [`(closure ,label ,free* ___) (emit-Closure label free* si env)]
+  [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]
+  [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]
   ))
 
 (define (emit-varref x env)
@@ -75,6 +97,23 @@
     (if loc
         (emit "  ld a0,~a(~a)" (cdr loc) (car loc))
         (error 'compile-program "Internal error: unbound variable ~a" x))))
+
+(define-syntax (with-saved-registers stx)
+  (syntax-case stx ()
+    [(_ [si ()] expr ...)
+     #'(let ([si si]) expr ...)]
+    [(_ [si (reg)] expr ...)
+     #'(begin
+         (emit "  sd ~a,~a(sp) /* save ~a */" reg si reg)
+         (let ([si (- si (constant wordsize))])
+           (with-saved-registers [si ()] expr ...))
+         (emit "  ld ~a, ~a(sp) /* restore ~a */" reg si reg))]
+    [(_ [si (r1 r2 ...)] expr ...)
+     #'(begin
+         (emit "  sd ~a,~a(sp) /* save ~a */" r1 si r1)
+         (let ([si (- si (constant wordsize))])
+           (with-saved-registers [si (r2 ...)] expr ...))
+         (emit "  ld ~a, ~a(sp) /* restore ~a */" r1 si r1))]))
 
 (define (emit-begin exprs si env)
   (cond
@@ -121,50 +160,51 @@
      (emit "  add ~a,~a,~a" (constant heap-register) (constant heap-register) (* 2 (constant wordsize)))]
     [(make-vector)
      (emit-expr (primcall-operand1 expr) si env)
-     (emit "  srai a0,a0,~a" (constant fixnum-shift))
+     (emit "  srli a0,a0,~a" (constant fixnum-shift))
      (emit "  sd a0,~a(sp)" si)
-     (emit "  slli a0,a0, ~a" (constant wordsize))
+     (emit "  slli a0,a0, ~a" (constant wordsize-shift))
      (emit "  add a0, a0, 11") ; align to next (8-byte)
      (emit "  and a0, a0, -8") ; object boundary
      (emit "  sd ~a, ~a(sp)" (constant heap-register) (- si (constant wordsize))) ; save address on stack
      (emit "  add ~a,~a,a0" (constant heap-register) (constant heap-register)) ; increment heap register
      (emit-expr (primcall-operand2 expr (shift (- (constant fixnum-shift)) #xdead0))
-                (- si (constant wordsize) (constant wordsize)) env) ; r0 = initial value
+                (- si (constant wordsize) (constant wordsize)) env) ; a0 = initial value
      (emit "  ld t3, ~a(sp)" (- si (constant wordsize)) #;(// "pointer to vector"))
      (emit "  ld a1, ~a(sp)" si                #;(// "size"))
      (emit "  sd a1, (t3)"         #;(// "write size"))
-     (emit "  li t4, 1")
-     (let ([loop (unique-label "loop")] [break (unique-label "break")])
+     (let ([loop (unique-label "initialize_vector")] [break (unique-label "break")])
        (emit-label loop)
-       (emit "  sub a1,a1,t4") ; decrement r1
-       (emit "  blt a1,zero, ~a" break) ; if r1 < 0 goto break
-       (emit "  sd a0, ~a(t3)" (constant wordsize)) ; initialize word
+       (emit "  addi a1,a1,-1") ; decrement a1
+       (emit "  blt a1,zero, ~a" break) ; if a1 < 0 goto break
+       (emit "  addi t3,t3,~a" (constant wordsize)) ; move along the vector
+       (emit "  sd a0, (t3)") ; initialize word
        (emit "  j ~a" loop)
        (emit-label break))
      (emit "  ld a0, ~a(sp)" (- si (constant wordsize)) #;(// "restore pointer to vector"))
-     (emit "  or a0,a0,~a" (constant vector-tag)           #;(// "tag vector"))
-           ]
+     (emit "  or a0,a0,~a /* tag vector */" (constant vector-tag))]
     ))
 
 (define (emit-side-effect-primcall op expr si env)
   (case op
-    ; TODO: pick better registers here -- not recursion safe!
     [(vector-set!) ; vec n obj
-     (emit-expr (primcall-operand1 expr) si env)
-     (emit "  li t0,~a" (bitwise-not (constant vector-tag)))
-     (emit "  and t1,a0,t0") ; clear vector tag (TODO -- can reuse t0 from above)
-     (emit-expr (primcall-operand2 expr) si env)
-     (emit "  srai t2,a0,~a" (constant fixnum-shift))
-     (emit "  addi t2,t2,1") ; skip over vector size
-     (emit "  slli t2,t2,~a" (constant wordsize-shift)) ; multiply by wordsize
-     (emit "  add  t1,t1,t2") ; add index
-     (emit-expr (primcall-operand3 expr) si env) ; value in a0
-     (emit "  sd a0, (t1)")]
+     (with-saved-registers [si ("s4" "s5")]
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  li t0,~a" (bitwise-not (constant vector-tag)))
+       (emit "  and s4,a0,t0") ; clear vector tag and move to s4
+       (emit-expr (primcall-operand2 expr) si env)
+       (emit "  srai s5,a0,~a" (constant fixnum-shift))
+       (emit "  addi s5,s5,1") ; skip over vector size
+       (emit "  slli s5,s5,~a" (constant wordsize-shift)) ; multiply by wordsize
+       (emit-expr (primcall-operand3 expr) si env) ; value in a0
+       (emit "  add s4,s4,s5")
+       (emit "  sd a0, (s4)"))]
     [else (error 'compile-program
                  "Unsupported primcall ~s in ~s" (pretty-format op) (pretty-format expr))]))
 
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
+    (emit "/* ~a {{{ */" op)
+    ;(printf "Emitting ~a~n" op)
     (case op
       [(cons make-vector)
        (emit-allocation-primcall op expr si env)]
@@ -172,10 +212,10 @@
        (emit-side-effect-primcall op expr si env)]
       [(add1)
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "addiw a0,a0,~a" (immediate-rep 1))]
+       (emit "addi a0,a0,~a" (immediate-rep 1))]
       [(sub1)
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "addiw a0,a0,~a" (immediate-rep -1))]
+       (emit "addi a0,a0,~a" (immediate-rep -1))]
       [(zero?)
        (let ([L-zero (unique-label)]
              [L-end (unique-label)])
@@ -218,23 +258,23 @@
        (emit "srai a0,a0,~a" (- (constant char-shift) (constant fixnum-shift)))]
       [(+)
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "sw a0,~a(sp)" si)
+       (emit "sd a0,~a(sp)" si)
        (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "lw a1,~a(sp)" si)
-       (emit "addw a0,a0,a1")]
+       (emit "ld a1,~a(sp)" si)
+       (emit "add a0,a0,a1")]
       [(-)
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "sw a0,~a(sp)" si)
+       (emit "sd a0,~a(sp)" si)
        (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "lw a1,~a(sp)" si)
-       (emit "subw a0,a1,a0")]
+       (emit "ld a1,~a(sp)" si)
+       (emit "sub a0,a1,a0")]
       [(=)
        (let ([L-operands-equal (unique-label)]
              [L-end (unique-label)])
          (emit-expr (primcall-operand1 expr) si env)
-         (emit "sw a0,~a(sp)" si)
+         (emit "sd a0,~a(sp)" si)
          (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-         (emit "lw a1,~a(sp)" si)
+         (emit "ld a1,~a(sp)" si)
          (emit "  beq a0,a1, ~a" L-operands-equal)
          (emit "li a0, ~a" (immediate-rep #f))
          (emit "j ~a" L-end)
@@ -245,9 +285,9 @@
        (let ([L-return-true (unique-label)]
              [L-end (unique-label)])
          (emit-expr (primcall-operand1 expr) si env)
-         (emit "sw a0,~a(sp)" si)
+         (emit "sd a0,~a(sp)" si)
          (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-         (emit "lw a1,~a(sp)" si)
+         (emit "ld a1,~a(sp)" si)
          (emit "  blt a1,a0, ~a" L-return-true)
          (emit "li a0, ~a" (immediate-rep #f))
          (emit "j ~a" L-end)
@@ -256,18 +296,18 @@
          (emit-label L-end))]
       [(*)
        (emit-expr (primcall-operand1 expr) si env)
-       (emit "sw a0,~a(sp)" si)
+       (emit "sd a0,~a(sp)" si)
        (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "lw a1,~a(sp)" si)
+       (emit "ld a1,~a(sp)" si)
        (emit "srai a0,a0,~a" (constant fixnum-shift))
        (emit "mul a0,a0,a1")]
       [(bitwise-arithmetic-shift-left bitwise-arithmetic-shift)
        (let ([L-negative-operand (unique-label)]
              [L-end (unique-label)])
          (emit-expr (primcall-operand1 expr) si env)
-         (emit "sw a0,~a(sp)" si)
+         (emit "sd a0,~a(sp)" si)
          (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-         (emit "lw a1,~a(sp)" si)
+         (emit "ld a1,~a(sp)" si)
          (emit "srai a0,a0,~a" (constant fixnum-shift))
          (emit "srai a1,a1,~a" (constant fixnum-shift))
          (emit "blt a0,zero,~a" L-negative-operand)
@@ -282,9 +322,9 @@
        (let ([L-negative-operand (unique-label)]
              [L-end (unique-label)])
          (emit-expr (primcall-operand1 expr) si env)
-         (emit "sw a0,~a(sp)" si)
+         (emit "sd a0,~a(sp)" si)
          (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-         (emit "lw a1,~a(sp)" si)
+         (emit "ld a1,~a(sp)" si)
          (emit "srai a0,a0,~a" (constant fixnum-shift))
          (emit "srai a1,a1,~a" (constant fixnum-shift))
          (emit "blt a0,zero,~a" L-negative-operand)
@@ -334,8 +374,20 @@
        (emit "  and a0,a0,a1")
        (emit "  ld a0, (a0)")
        (emit "  slli a0,a0, ~a" (constant fixnum-shift))]
+      [(vector-ref)
+       (with-saved-registers [si ("s4")]
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "  li t0,~a" (bitwise-not (constant vector-tag)))
+         (emit "  and s4,a0,t0")
+         (emit-expr (primcall-operand2 expr) si env) ; offset in a0
+         (emit "  srli a1,a0,~a" (constant fixnum-shift)); (// "offset fixnum->int"))
+         (emit "  addi a1,a1,1");               (// "skip over vector size"))
+         (emit "  slli a1,a1,~a" (constant wordsize-shift)); (// "multiply by wordsize"))
+         (emit "  add s4,s4,a1")
+         (emit "  ld a0, (s4)"))];            (// "dereference and return")))]
 
-      [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
+      [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])
+    (emit "/* }}} end ~a */" op )))
 
 (define (immediate-rep x)
   (cond [(integer? x) (shift (constant fixnum-shift) x)]
@@ -359,6 +411,69 @@
 
 (define (emit-label l)
   (emit "~a:" l))
+
+(define (emit-Closure label free* si env)
+  (let* ([nfree (length free*)]               ; number of free variables
+         [size (add1 nfree)]                  ; plus 1 for the label address
+         [size (* (constant wordsize) size)]           ; in words
+         [size (bitwise-and -8 (+ 11 size))]) ; align to next dword
+    (emit "  la a0,~a /* ~a */" (lookup label env) label)
+    (emit "  sd a0,(~a)" (constant heap-register))
+    (let loop ([free* free*] [index (constant wordsize)])
+      (unless (null? free*)
+        (emit-varref (car free*) env)
+        (emit "  sd a0,~a(~a)" index (constant heap-register))
+        (loop (cdr free*) (+ index (constant wordsize)))))
+    (emit "  ori a0,~a,~a" (constant heap-register) (constant closure-tag))
+    (emit "  addi ~a,~a,~a" (constant heap-register) (constant heap-register) size)))
+
+
+; emit-Tailcall sets up a tail call and then branches
+(define (emit-Tailcall f e* si env)
+  ; We are clobbering our incoming stack frame.  Even the LR, which we really
+  ; should save.  We restore it first as a kludge.  In the future, we should
+  ; emit a special Lx_tail label pointing to the spot right after where we save
+  ; the LR on the stack.  Then we can branch to there instead.
+  (emit-expr f si env) ; a0 = closure
+  (emit "  li t0,~a" (bitwise-not (constant closure-tag)))
+  (emit "  and a0,a0,t0 /* clear tailcall tag bits */") ; clear tag bits
+  (emit "  sd a0, ~a(sp)" (get-stack-index 'closure)) ; put closure on the stack
+  ; We now have to evaluate all arguments and gradually add their values to the stack.
+  (let loop ([e* e*] [arg-index arg0-index] [arg-count 0] [si arg0-index])
+    (cond
+      [(null? e*)
+       (emit "  ld a0,~a(sp)" (get-stack-index 'closure))
+       (emit "  ld a0,(a0) /* load branch target */")
+       (emit "  ld ra,~a(sp)" (get-stack-index 'link-register))
+       (emit "  jr a0")]
+      [else
+        (emit-expr (car e*) si env)
+        (emit "  sd a0, ~a(sp)" arg-index)
+        (loop (cdr e*) (- arg-index (constant wordsize)) (add1 arg-count) (- si (constant wordsize)))])))
+
+
+(define arg0-index (* -3 (constant wordsize)))
+; emit-Funcall sets up a call and then branches
+(define (emit-Funcall f e* si env)
+  (emit-expr f si env) ; a0 = closure
+  (let ([psi si]) ; procedure SI
+    (emit "  li t0,~a" (bitwise-not (constant closure-tag)))
+    (emit "  and a0,a0,t0")
+    (emit "  sd a0, ~a(sp)" (+ psi (get-stack-index 'closure)))
+    (let loop ([e* e*] [arg-index (+ psi arg0-index)] [arg-count 0] [si (+ psi arg0-index)])
+      (cond
+        [(null? e*)
+         (emit "  ld ~a, ~a(sp) /* load closure from stack */" closure-register (+ psi (get-stack-index 'closure)))
+         (emit "  ld ~a, (~a) /* dereference code pointer */" closure-register closure-register)
+         (emit "  addi sp,sp,~a /* set procedure SP */" psi )
+         (emit "  jalr ra,~a,0" closure-register)
+         (emit "  addi sp,sp,~a /* restore SP */" (- psi))
+         (emit "  ld ~a, ~a(sp) /* restore closure address */" closure-register (get-stack-index 'closure))]
+        [else
+          (emit-expr (car e*) si env)
+          (emit "  sd a0, ~a(sp) /* store arg ~a */" arg-index arg-count)
+          (loop (cdr e*) (- arg-index (constant wordsize)) (add1 arg-count) (- si (constant wordsize)))]))))
+
 
 (define (emit-end-function name)
   (emit "  .size ~a, .-~a" name name))
