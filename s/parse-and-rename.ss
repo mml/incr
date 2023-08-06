@@ -16,12 +16,14 @@
   (check-equal? (parse-and-rename 9) ''9)
   (check-equal? (parse-and-rename #t) ''#t)
   (check-exn exn:fail? (lambda () (parse-and-rename '(+ x 9))))
-  (check-not-exn (lambda () (parse-and-rename '(let ([x 10]) (+ x 9)))))
-
-  )
+  (check-not-exn (lambda () (parse-and-rename '(let ([x 10]) (+ x 9))))))
 
 (define (Expr* expr* env)
   (map (lambda (expr) (Expr expr env)) expr*))
+
+(module+ test
+  (check-equal? (Expr* '((+ 1 2)) primitives)
+                '((primcall + '1 '2))))
 
 (define (App e0 e* env)
   (let ([as (assq e0 env)])
@@ -29,7 +31,7 @@
       (error 'parse-and-rename "undefined variable ~a" e0))
     (let ([x (cdr as)])
       (cond
-        [(symbol? x) 
+        [(symbol? x)
          `(funcall ,x ,@(Expr* e* env))]
         [(number? x)
          (if (= x (length e*))
@@ -72,6 +74,10 @@
   ))
 
 (module+ test
+  (check-equal? (Expr '(+ 1 1) primitives)
+                '(primcall + '1 '1))
+  (check-equal? (Expr '(let () (+ 1 1)) primitives)
+                '(let () (primcall + '1 '1)))
   (check-equal? (Cond '([else 1 2 3]) primitives)
                 '(begin '1 '2 '3))
   (check-equal? (Cond '([(null? '()) => (lambda (x) 10)]) primitives)
@@ -109,7 +115,7 @@
 (define (Or expr* env) (match expr*
   ['() `'#f]
   [`(,test) (Expr test env)]
-  [`(,test ,test* __1) 
+  [`(,test ,test* __1)
     (let ([t (tmp)])
       `(let ([,t ,(Expr test env)])
          (if ,t ,t ,(Or test* env))))]))
@@ -161,11 +167,34 @@
          (primcall set! bar.4 tmp5)
          (primcall + foo.3 bar.4)))))
 
+(module+ test
+  (check-equal?
+    (Letrec '(a b) '(10 (+ a a)) '((+ a b)) primitives)
+    '(let ([a.5 '#f] [b.6 '#f])
+      (let ([tmp6 '10] [tmp7 (primcall + a.5 a.5)])
+       (primcall set! a.5 tmp6)
+       (primcall set! b.6 tmp7)
+       (primcall + a.5 b.6)))))
+
+
 (define (Let* binding* body* env) (match binding*
   ['() `(let () ,@(Expr* body* env))]
   [`([,x ,e]) (Expr `(let ([,x ,e]) ,@body*) env)]
-  [`([,x ,e] ,binding* __1) (Expr `(let ([,x ,e])
-                                  (let* ,binding* ,@body*)) env)]))
+  [`([,x ,e] ,binding* __1)
+    (Expr `(let ([,x ,e])
+             (let* ,binding* ,@body*)) env)]))
+
+(module+ test
+  (check-equal?
+    (Let* '() '((+ 1 1)) primitives)
+    '(let () (primcall + '1 '1)))
+
+  (check-equal?
+    (Let* '([a 10] [b (+ a a)]) '((+ a b)) primitives)
+    '(let ([a.7 '10])
+       (let ([b.8 (primcall + a.7 a.7)])
+         (primcall + a.7 b.8)))
+    ))
 
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
@@ -187,7 +216,7 @@
     (Letrec x* e* body* env)]
   [`(let* ,binding* ,body* __1)
     (Let* binding* body* env)]
-  [`(let ([,x* ,e*] ___) ,body* __1) 
+  [`(let ([,x* ,e*] ___) ,body* __1)
     (let* ([ux* (map unique-variable x*)]
            [e* (Expr* e* env)]
            [bindings (map list ux* e*)]
