@@ -196,9 +196,18 @@
          (primcall + a.7 b.8)))
     ))
 
+(define (Complex expr env) (match expr
+  [`(,tl) (cons (Complex tl env) '())]
+  [`(,hd . ,tl) (cons (Complex hd env) (Complex tl env))]
+  [`,(? symbol? c) `(primcall quote ,c)]
+  [`,(? immediate? c) c]))
+
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
   [`(quote ,(? immediate? c)) expr]
+  [`(quote ,(? pair? c)) `(datum ,(unique-const) ,(Complex c env))]
+  [`(quote ,(? symbol? c)) `(datum ,(unique-const) ,(Complex c env))]
+  [`(quote ,x* ___) (error 'parse-and-rename "unsupported quote: ~a" expr)]
   [(? symbol? x)
    (cond [(assq x env) => cdr]
          [else (error 'parse-and-rename "undefined variable ~a" x)])]
@@ -233,3 +242,12 @@
   [`(,e0 ,e* ___)
     `(funcall ,(Expr e0 env) ,@(Expr* e* env))]
   ))
+
+(module+ test
+  (check-equal? (Expr '(quote 5) primitives) ''5)
+  (check-equal? (Expr '(quote (2 . 5)) primitives) '(datum const0 (2 . 5)))
+  (check-equal? (Expr '(quote (2 3 4)) primitives) '(datum const1 (2 3 4)))
+  (check-equal? (Expr '(quote foo) primitives) '(datum const2 foo))
+  (check-equal? (Expr '(quote (a b c)) primitives) '(datum const3 (a b c)))
+  (check-equal? (Expr '(quote (if x)) primitives) '(datum const4 (if x)))
+  )

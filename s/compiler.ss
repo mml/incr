@@ -10,12 +10,13 @@
 
 (define (compile-program prog)
   (let ([labels (identify-tail-calls
-                  (collect-code
-                    (uncover-free
-                      (remove-set!
-                        (uncover-settable
-                          (make-begin-explicit
-                            (parse-and-rename prog)))))))])
+                  (initialize-constants
+                    (collect-code
+                      (uncover-free
+                        (remove-set!
+                          (uncover-settable
+                            (make-begin-explicit
+                              (parse-and-rename prog))))))))])
     (emit-prologue)
     (emit-Labels labels)
     (emit-epilogue)))

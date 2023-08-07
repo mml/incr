@@ -1,6 +1,15 @@
 #lang racket
 
-(provide tmp unique-variable unique-box)
+(provide unique-const tmp unique-variable unique-box)
+
+(define unique-const
+  (let ()
+    (define i 0)
+    (lambda ()
+      (let ([n i])
+        (set! i (add1 i))
+        (string->symbol
+          (string-append "const" (number->string n)))))))
 
 (define tmp
   (let ()
