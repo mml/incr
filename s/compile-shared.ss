@@ -19,6 +19,28 @@
 (provide arg-env)
 (provide clovar-env)
 (provide get-stack-index)
+(provide emit-Labels)
+(require racket/lazy-require)
+(lazy-require
+  ["machine.ss" (emit-label emit-Code emit-scheme-entry emit-bss unique-label)])
+
+(define (emit-Def x code env)
+  (emit-label (lookup x env))
+  (emit-Code code env))
+
+(define (emit-Def* x* code*)
+  (let ([env (map (lambda (x) (cons x (unique-label (string-append "C" (symbol->string x) "_")))) x*)])
+    (let loop ([x* x*] [code* code*])
+      (cond [(null? x*) env]
+            [else
+              (emit-Def (car x*) (car code*) env)
+              (loop (cdr x*) (cdr code*))]))))
+
+(define (emit-Labels expr) (match expr
+  [`(labels ([,x* ,code*] ___) ,dlabels ,body)
+    (let ([env (emit-Def* x* code*)])
+      (emit-scheme-entry body env))
+    (emit-bss dlabels)]))
 
 (define scramble-link-register?
   (make-parameter #f))

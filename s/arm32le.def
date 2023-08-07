@@ -4,6 +4,10 @@
 (provide emit-Labels)
 (provide emit-epilogue)
 (require "compile-shared.ss")
+(provide emit-label emit-Code emit-scheme-entry emit-bss unique-label)
+
+(define-constant wordsize-shift 2)
+(define-constant wordsize 4)
 
 (define (emit-prologue)
   (emit "  .arch armv8-a")
@@ -21,25 +25,6 @@
   (emit "  .eabi_attribute 34, 1")
   (emit "  .eabi_attribute 18, 4")
   (emit "  .text"))
-
-(define (emit-Labels expr) (match expr
-  [`(labels ([,x* ,code*] ___) ,body)
-    (let ([env (emit-Def* x* code*)])
-      (emit-scheme-entry body env))]))
-
-(define (emit-Def* x* code*)
-  (let ([env (map (lambda (x) (cons x (unique-label))) x*)])
-    (let loop ([x* x*] [code* code*])
-      (cond [(null? x*) env]
-            [else
-              (emit-Def (car x*) (car code*) env)
-              (loop (cdr x*) (cdr code*))]))))
-
-(define (emit-Def x code env)
-  (emit "  @ label ~a{{{" x)
-  (emit-label (lookup x env))
-  (emit-Code code env)
-  (emit "  @ label }}}~a" x))
 
 ; emit-Code emits a subroutine
 (define (emit-Code code env) (match code
@@ -614,7 +599,33 @@
   [`(if ,test ,conseq ,altern) (emit-if test conseq altern si env)]
   [`(closure ,label ,free* ___) (emit-Closure label free* si env)]
   [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]
-  [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]))
+  [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]
+  [`(constant-init ,n ,e) (emit-constant-init n e si env)]
+  [`(constant-ref ,n) (emit-constant-ref n si env)]))
+
+(define (emit-constant-init name expr si env)
+  (emit "/* constant-init ~a */" name)
+  (emit-expr expr si env)
+  (emit "  ldr r1,=~a" name)
+  (emit "  str r0,[r1]"))
+
+(define (emit-constant-ref name si env)
+  (emit "/* constant-ref ~a */" name)
+  (emit "  ldr r0,=~a" name)
+  (emit "  ldr r0,[r1]"))
+
+(define (emit-bss dlabels)
+  (let ([names dlabels])
+    (for-each (lambda (name) (emit ".global ~a" name))
+              names)
+    (emit ".bss")
+    (emit ".align ~a" (constant wordsize-shift))
+    (for-each (lambda (name)
+                (emit ".type ~a, %object" name)
+                (emit ".size ~a, ~a" name (constant wordsize))
+                (emit-label name)
+                (emit ".space ~a" (constant wordsize)))
+              names)))
 
 (define (emit-epilogue)
   (emit ".ident \"mml scheme compiler\"")

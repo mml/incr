@@ -1,10 +1,9 @@
 #lang racket
 
-(provide emit-prologue)
-(provide emit-Labels)
 (provide emit-epilogue)
 (require "compile-shared.ss")
 (require racket/trace)
+(provide emit-label emit-Code emit-scheme-entry emit-bss unique-label)
 
 ;;; https://riscv.org/wp-content/uploads/2015/01/riscv-calling.pdf
 ;;; https://en.wikichip.org/wiki/risc-v/registers
@@ -27,7 +26,6 @@
     [() (/unique-label "L")]
     [(prefix) (/unique-label prefix)]))
 
-
 (define (emit . args)
   (apply fprintf (compile-port) args)
   (newline (compile-port)))
@@ -40,23 +38,6 @@
   (emit "  .text")
   (emit "  .align	1"))
 
-(define (emit-Labels expr) (match expr
-  [`(labels ([,x* ,code*] ___) ,dlabels ,body)
-    (let ([env (emit-Def* x* code*)])
-      (emit-scheme-entry body env))
-    (emit-bss dlabels)]))
-
-(define (emit-Def* x* code*)
-  (let ([env (map (lambda (x) (cons x (unique-label (string-append "C" (symbol->string x) "_")))) x*)])
-    (let loop ([x* x*] [code* code*])
-      (cond [(null? x*) env]
-            [else
-              (emit-Def (car x*) (car code*) env)
-              (loop (cdr x*) (cdr code*))]))))
-
-(define (emit-Def x code env)
-  (emit-label (lookup x env))
-  (emit-Code code env))
 
 (define (emit-Code code env) (match code
   [`(code (,x* ___) (,y* ___) ,body) ; free variables not implemented yet

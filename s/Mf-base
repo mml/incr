@@ -26,6 +26,8 @@ cat: $(ASSEMBLY)
 edit: $(ASSEMBLY)
 	$(EDITOR) $<
 
+src: $(SRCS)
+
 $(SRCS):
 	ln -s ../../s/$@
 
