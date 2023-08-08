@@ -182,7 +182,7 @@
     [(string)
      (let ([len (primcall-operand-count expr)])
        (emit "  li a0, ~a" len)         ; len in a0
-       (emit "  add a1, a0, 11")        ; align to next (8-byte)
+       (emit "  add a1, a0, ~a" (+ 11 (constant wordsize))); align to next (8-byte)
        (emit "  and a1, a1, -8")        ; object boundary (in a1)
        (emit "  mv t0, ~a" (constant heap-register)) ; address in t0
        (emit "  add ~a,~a,a1" (constant heap-register) (constant heap-register)) ; increment heap register

@@ -8,9 +8,6 @@
       (test-case (string) (str ""))
       (test-case (string #\a) (str "a"))
       (test-case (string #\1 #\2 #\3) (str "123"))
-      ;(test-case (cons (string #\a) 1) "(\"a\" . \"b\")")
-      ;(test-case (cons 1 (string #\b)) "(\"a\" . \"b\")")
-      ;(test-case (cons (string #\a) (string #\b)) "(\"a\" . \"b\")")
     )
 
     (test-cases "complex constants"
@@ -19,8 +16,15 @@
       (test-case (quote (1)) "(1)")
       (test-case "" (str ""))
       (test-case "a" (str "a"))
-      ;(test-case (quote ("abc" . "def")) "(\"abc\" . \"def\")")
-      ;(test-case (quote ("abc" "def")) "(\"abc\" \"def\")")
+      (test-case (quote ("abc" . "def")) "(\"abc\" . \"def\")")
+      (test-case (quote ("abc" "def")) "(\"abc\" \"def\")")
+      (test-case (quote
+                   ("abc" "de" #f
+                    ("ghi" "jkl"
+                     (#t #\u #\V
+                      ("wxy" 0 ())))))
+                 "(\"abc\" \"de\" #f (\"ghi\" \"jkl\" (#t #\\u #\\V (\"wxy\" 0 ()))))")
+
       #;(test-case (let ([f (lambda ()
                             (quote (1 . "H")))])
                    (eq? (f) (f)))
@@ -519,7 +523,15 @@
                    (cons
                      (cons 30 (cons 40 '()))
                      '()))
-                 "((10 20) (30 40))"))
+                 "((10 20) (30 40))")
+      (test-case (cons #\1 #\H) "(#\\1 . #\\H)")
+      )
+
+    (test-cases "mixed allocation"
+      (test-case (cons (string #\a) 1) "(\"a\" . 1)")
+      (test-case (cons 1 (string #\b)) "(1 . \"b\")")
+      (test-case (cons (string #\a) (string #\b)) "(\"a\" . \"b\")")
+      )
 
     (test-cases "procedures"
       (test-case
