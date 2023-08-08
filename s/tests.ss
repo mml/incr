@@ -1,15 +1,26 @@
 (module tests racket
   (require "test-driver.ss")
 
-  (define (runtests)
+  (define (str s) (string-append "\"" s "\""))
 
+  (define (runtests)
     (test-cases "strings"
-      (test-case (string) "\"\""))
+      (test-case (string) (str ""))
+      (test-case (string #\a) (str "a"))
+      (test-case (string #\1 #\2 #\3) (str "123"))
+      ;(test-case (cons (string #\a) 1) "(\"a\" . \"b\")")
+      ;(test-case (cons 1 (string #\b)) "(\"a\" . \"b\")")
+      ;(test-case (cons (string #\a) (string #\b)) "(\"a\" . \"b\")")
+    )
 
     (test-cases "complex constants"
       (test-case (quote 5) "5")
       (test-case (quote (5 . 1)) "(5 . 1)")
       (test-case (quote (1)) "(1)")
+      (test-case "" (str ""))
+      (test-case "a" (str "a"))
+      ;(test-case (quote ("abc" . "def")) "(\"abc\" . \"def\")")
+      ;(test-case (quote ("abc" "def")) "(\"abc\" \"def\")")
       #;(test-case (let ([f (lambda ()
                             (quote (1 . "H")))])
                    (eq? (f) (f)))

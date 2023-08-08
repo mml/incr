@@ -200,9 +200,9 @@
 (define (Complex expr env) (match expr
   [`(,tl) (cons (Complex tl env) '())]
   [`(,hd . ,tl) (cons (Complex hd env) (Complex tl env))]
-  [`,(? symbol? c) `(primcall quote ,c)]
+  [(? symbol? c) `(primcall quote ,c)]
   [(? string? c) c]
-  [`,(? immediate? c) c]))
+  [(? immediate? c) c]))
 
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
@@ -252,6 +252,7 @@
   (check-equal? (Expr '(quote (2 3 4)) primitives) '(datum const1 (2 3 4)))
   (check-equal? (Expr "foo" primitives) '(datum const2 "foo"))
   (check-equal? (Expr '(string) primitives) '(primcall string))
+  ;(check-equal? (Expr '(string #\a) primitives) '(primcall string #\a))
   ;(check-equal? (Expr '(quote foo) primitives) '(datum const2 foo))
   ;(check-equal? (Expr '(quote (a b c)) primitives) '(datum const3 (a b c)))
   ;(check-equal? (Expr '(quote (if x)) primitives) '(datum const4 (if x)))

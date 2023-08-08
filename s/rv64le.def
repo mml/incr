@@ -191,7 +191,7 @@
        (emit "  addi t0,t0, ~a" (constant wordsize))
        (for-each
          (lambda (operand)
-           (emit "  li t2,~a" (char->integer operand))
+           (emit "  li t2,~a" (char->integer (cadr operand)))
            (emit "  sb t2,(t0)")
            (emit "  addi t0,t0,1"))
          (primcall-operands expr))

@@ -22,4 +22,16 @@
 (define (Init init) (match init
   ['() '(quote ())]
   [(? immediate? c) `(quote ,init)]
+  [(? string? c) (String c)]
   [`(,hd . ,tl) `(primcall cons ,(Init hd) ,(Init tl))]))
+
+(define (String s)
+  (define (q c) `',c)
+  `(primcall string ,@(map q (string->list s))))
+
+(module+ test
+  (require rackunit)
+
+  (check-equal? (String "") '(primcall string))
+  (check-equal? (String "abc") '(primcall string '#\a '#\b '#\c))
+)
