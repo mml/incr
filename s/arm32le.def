@@ -412,6 +412,22 @@
      (emit "  ldr r0, [sp,#~a]" (- si (wordsize)) (// "restore pointer to vector"))
      (emit "  orr r0,r0,#~a" (constant vector-tag)           (// "tag vector"))
      (emit "  @ make-vector}}}")]
+    [(string)
+     (emit-move32 "r0" (primcall-operand-count expr))
+     (emit "  add r1, r0, #11"          (// "align size to next"))
+     (emit "  and r1, r1, #-8"          (// "   object boundary"))
+     (emit "  mov r2, ~a" heap-register) ; save addr in r2
+     (emit "  add ~a,~a,r0" heap-register heap-register)
+     (emit "  str r0, [r2]")
+     (emit "  mov r0, r2") ; copy (untagged) return value back to r0
+     (emit "  add r2,r2, ~a" (constant wordsize))
+     (for-each
+       (lambda (operand)
+         (emit "  ldr r3,~a" (char->integer operand))
+         (emit "  str r3,(r2)")
+         (emit "  add r2,r2,#1"))
+       (primcall-operands expr))
+     (emit "  orr r0,r0,#~a" (constant string-tag))]
     ))
 
 (define (emit-side-effect-primcall op expr si env)
@@ -434,7 +450,7 @@
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
   (case op
-    [(cons make-vector)
+    [(cons make-vector string)
      (emit-allocation-primcall op expr si env)]
     [(vector-set!)
      (emit-side-effect-primcall op expr si env)]

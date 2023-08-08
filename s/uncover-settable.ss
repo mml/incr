@@ -28,11 +28,11 @@
   [(? variable? x) (values expr (set))]
   [`(begin ,expr* __1)
     (let-values ([(expr* settable*) (Expr* expr*)])
-      (values `(begin ,@expr*) (apply set-union settable*)))]
+      (values `(begin ,@expr*) (set-union* settable*)))]
   [`(let ([,x* ,e*] ___) ,body)
     (let-values ([(e* settable*) (Expr* e*)])
       (let-values ([(body settable) (Expr body)])
-        (let* ([usettable (apply set-union (cons settable settable*))]
+        (let* ([usettable (set-union* (cons settable settable*))]
                [lsettable (set-intersect usettable (apply set x*))]
                [settable (set-subtract usettable lsettable)])
           (let ([bindings (map list x* e*)])
@@ -52,17 +52,33 @@
                  [(conseq csettable) (Expr conseq)]
                  [(altern asettable) (Expr altern)])
       (values `(if ,test ,conseq ,altern)
-              (apply set-union (list tsettable csettable asettable))))]
+              (set-union* (list tsettable csettable asettable))))]
   [`(funcall ,e* __1)
     (let-values ([(e* settable*) (Expr* e*)])
-      (values `(funcall ,@e*) (apply set-union settable*)))]
+      (values `(funcall ,@e*) (set-union* settable*)))]
   [`(primcall set! ,x ,e)
     (let-values ([(e settable) (Expr e)])
       (values `(primcall set! ,x ,e) (set-union settable (set x))))]
   [`(primcall ,pr ,e* ___)
     (let-values ([(e* settable*) (Expr* e*)])
-      (values `(primcall ,pr ,@e*) (apply set-union settable*)))]
+      (values `(primcall ,pr ,@e*) (set-union* settable*)))]
   ))
+
+(define (set-union* sets)
+  (if (null? sets)
+    '()
+    (apply set-union sets)))
+
+(module+ test
+  (require rackunit)
+
+  (check-pred set-empty? (set-union* '()))
+
+  (check-pred set-empty? (set-union* '(())))
+  (check-pred (lambda (s) (set=? s '(1 2 3)))
+              (set-union* '((1) (2) () () (2 3))))
+)
+
 
 (module+ test
   (require rackunit)
@@ -104,5 +120,9 @@
         (let ([case (car cases)])
           (check-equal? (uncover-settable (car case)) (cdr case))
           (loop (cdr cases)))]))
+  
+  (check-equal?
+    (uncover-settable '(primcall string))
+    '(primcall string))
 
 )

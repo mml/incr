@@ -20,8 +20,9 @@
 #define NULL_VALUE 0b00111111
 
 #define VECTOR_TAG 0b010
-
+#define STRING_TAG 0b011
 #define PAIR_TAG 0b001
+#define PTR_MASK 0b111
 
 #ifndef PTR_T
 #define ADDRESS_MASK 0xfffffff8
@@ -76,6 +77,16 @@ void print_vector(ptr_t *addr) {
   printf(")");
 }
 
+void print_string(ptr_t *addr) {
+  ptr_t size = addr[0];
+  char *bytes = (char *) &(addr[1]);
+  printf("\"");
+  for (ptr_t i = 0; i < size; i++) {
+    printf("%c", bytes[i]);
+  }
+  printf("\"");
+}
+
 void print_pair(ptr_t *addr) {
   ptr_t car = addr[0];
   ptr_t cdr = addr[1];
@@ -105,22 +116,24 @@ void print_cdr(ptr_t cdr) {
 void print_ptr(ptr_t val) {
   if (val == NULL_VALUE) {
     printf("()");
-	} else if (val == FALSE_VALUE) {
-		printf("#f");
-	} else if (val == TRUE_VALUE) {
-		printf("#t");
-	} else if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
-		printf("%d", val >> FIXNUM_SHIFT);
+    } else if (val == FALSE_VALUE) {
+      printf("#f");
+    } else if (val == TRUE_VALUE) {
+      printf("#t");
+    } else if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
+      printf("%d", val >> FIXNUM_SHIFT);
   } else if ((val & CHAR_MASK) == CHAR_TAG) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);
-  } else if (val & VECTOR_TAG) {
+  } else if ((val & PTR_MASK) == (VECTOR_TAG)) {
     print_vector((ptr_t *)(val & ADDRESS_MASK));
-  } else if (val & PAIR_TAG) {
+  } else if ((val & PTR_MASK) == PAIR_TAG) {
     print_pair((ptr_t *)(val & ADDRESS_MASK));
-	} else {
-		errx(1, "Unknown value 0x%04x\n", val);
-	}
+  } else if ((val & PTR_MASK) == STRING_TAG) {
+    print_string((ptr_t *)(val & ADDRESS_MASK));
+  } else {
+    errx(1, "Unknown value 0x%04x\n", val);
+  }
 }
 
 int main(int argc, char **argv) {

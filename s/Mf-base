@@ -5,6 +5,7 @@ ASSEMBLY = $(WORKDIR)/x-test-program.s
 SRCS = $(shell cd ../../s; echo *.ss)
 zo_file = $(dir $(1))compiled/$(patsubst %.ss,%_ss.zo,$(notdir $(1)))
 ZO_FILES = $(foreach file,$(SRCS) machine.ss config.ss,$(call zo_file,$(file)))
+test_scheme = $(foreach file,$(SRCS),test-$(file))
 
 .PHONY: test unit debug dump raco cat edit clean realclean zo
 
@@ -31,8 +32,15 @@ src: $(SRCS)
 $(SRCS):
 	ln -s ../../s/$@
 
+$(test_scheme): test-% : %
+	raco test test --table --fresh-user -x $<
+
+ttt:
+	echo $(test_scheme)
+
 ### A nasty mess showing how to do byte compilation.
-zo: $(ZO_FILES)
+zo:
+	raco make -v -j 20 *.ss
 
 $(ZO_FILES) : $(call zo_file,%.ss): %.ss | compiled
 	raco make -v --no-deps $<

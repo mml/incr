@@ -22,9 +22,18 @@
 (define ternary-primitives
   '(vector-set!))
 
+#|
+variable-arity-spec = ()        if any number of parameters allowed
+                    | (min)     if [min,Inf) parameters allowed
+                    | (min max) if [min,max] parameters allowed
+|#
+(define variable-arity-primitives
+  '([string ()]))
+
 (define primitives
   (append (map (lambda (pr) (cons pr 1)) unary-primitives)
           (map (lambda (pr) (cons pr 2)) binary-primitives)
-          (map (lambda (pr) (cons pr 3)) ternary-primitives)))
+          (map (lambda (pr) (cons pr 3)) ternary-primitives)
+          variable-arity-primitives))
 
 (define (primitive? x) (assq x primitives))

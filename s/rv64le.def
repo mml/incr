@@ -1,5 +1,6 @@
 #lang racket
 
+(provide emit-prologue)
 (provide emit-epilogue)
 (require "compile-shared.ss")
 (require racket/trace)
@@ -178,6 +179,23 @@
        (emit-label break))
      (emit "  ld a0, ~a(sp)" (- si (constant wordsize)) #;(// "restore pointer to vector"))
      (emit "  or a0,a0,~a /* tag vector */" (constant vector-tag))]
+    [(string)
+     (let ([len (primcall-operand-count expr)])
+       (emit "  li a0, ~a" len)         ; len in a0
+       (emit "  add a1, a0, 11")        ; align to next (8-byte)
+       (emit "  and a1, a1, -8")        ; object boundary (in a1)
+       (emit "  mv t0, ~a" (constant heap-register)) ; address in t0
+       (emit "  add ~a,~a,a1" (constant heap-register) (constant heap-register)) ; increment heap register
+       (emit "  sd a0, (t0)")           ; write size
+       (emit "  mv a0, t0")             ; copy (untagged) return value back to a0
+       (emit "  addi t0,t0, ~a" (constant wordsize))
+       (for-each
+         (lambda (operand)
+           (emit "  li t2,~a" (char->integer operand))
+           (emit "  sb t2,(t0)")
+           (emit "  addi t0,t0,1"))
+         (primcall-operands expr))
+       (emit "  ori a0,a0,~a" (constant string-tag)))]; return tagged ptr
     ))
 
 (define (emit-side-effect-primcall op expr si env)
@@ -202,7 +220,7 @@
     (emit "/* ~a {{{ */" op)
     ;(printf "Emitting ~a~n" op)
     (case op
-      [(cons make-vector)
+      [(cons make-vector string)
        (emit-allocation-primcall op expr si env)]
       [(vector-set!)
        (emit-side-effect-primcall op expr si env)]

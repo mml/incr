@@ -8,10 +8,9 @@
 (provide constant)
 (provide bitwise-or)
 (provide shift)
-(provide primcall-op)
-(provide primcall-operand1)
-(provide primcall-operand2)
-(provide primcall-operand3)
+(provide
+  primcall-op primcall-operand1 primcall-operand2 primcall-operand3
+  primcall-operand-count primcall-operands)
 (provide lhs)
 (provide rhs)
 (provide extend-env)
@@ -133,7 +132,13 @@
 (define-constant fixnum-shift 2)
 (define-constant pair-tag #b001)
 (define-constant vector-tag #b010)
+(define-constant string-tag #b011)
 (define-constant closure-tag #b110)
+
+(define (primcall-operand-count expr)
+  (length (primcall-operands expr)))
+
+(define primcall-operands cdr)
 
 (define primcall-op car)
 (define primcall-operand1

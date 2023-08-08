@@ -69,7 +69,7 @@
 
   (define cases
     '(
-      ('9 . (labels () '9))
+      ('9 . (labels () () '9))
       )
     )
  
@@ -84,5 +84,5 @@
 
   (check-equal?
     (collect-code '(datum const0 (2 . 5)))
-    '(labels ([const0 (datum (2 . 5))]) (constant-ref const0)))
+    '(labels () ([const0 . (2 . 5)]) (constant-ref const0)))
   )

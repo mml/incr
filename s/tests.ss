@@ -3,6 +3,9 @@
 
   (define (runtests)
 
+    (test-cases "strings"
+      (test-case (string) "\"\""))
+
     (test-cases "complex constants"
       (test-case (quote 5) "5")
       (test-case (quote (5 . 1)) "(5 . 1)")

@@ -4,9 +4,9 @@
 
 (require racket/match)
 (require racket/trace)
+(require "machine.ss")
 (require "compile-shared.ss")
 (require "passes.ss")
-(require "machine.ss")
 
 (define (compile-program prog)
   (let ([labels (identify-tail-calls

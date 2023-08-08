@@ -27,11 +27,11 @@
   [(? variable? x) (values x (set x))]
   [`(begin ,expr* __1)
     (let-values ([(expr* free*) (Expr* expr*)])
-      (values `(begin ,@expr*) (apply set-union free*)))]
+      (values `(begin ,@expr*) (set-union* free*)))]
   [`(let ([,x* ,e*] ___) ,body)
     (let-values ([(e* free*) (Expr* e*)])
       (let-values ([(body free) (Expr body)])
-        (let* ([ufree (apply set-union (cons free free*))]
+        (let* ([ufree (set-union* (cons free free*))]
                [free (set-subtract ufree (apply set x*))])
           (let ([bindings (map list x* e*)])
             (values `(let ,bindings ,body) free)))))]
@@ -44,14 +44,20 @@
                  [(conseq cfree) (Expr conseq)]
                  [(altern afree) (Expr altern)])
       (values `(if ,test ,conseq ,altern)
-              (apply set-union (list tfree cfree afree))))]
+              (set-union* (list tfree cfree afree))))]
   [`(primcall ,pr ,e* ___)
     (let-values ([(e* free*) (Expr* e*)])
-      (values `(primcall ,pr ,@e*) (apply set-union free*)))]
+      (values `(primcall ,pr ,@e*) (set-union* free*)))]
   [`(funcall ,e* __1)
     (let-values ([(e* free*) (Expr* e*)])
-      (values `(funcall ,@e*) (apply set-union free*)))]
+      (values `(funcall ,@e*) (set-union* free*)))]
   ))
+
+(define (set-union* sets)
+  (if (null? sets)
+    '()
+    (apply set-union sets)))
+
 
 (module+ test
   (require rackunit)
@@ -88,4 +94,7 @@
           (check-equal? (uncover-free (car case)) (cdr case))
           (loop (cdr cases)))]))
 
+  (check-equal?
+    (uncover-free '(primcall string))
+    '(primcall string))
 )

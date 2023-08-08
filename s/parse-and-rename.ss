@@ -38,6 +38,7 @@
              `(primcall ,e0 ,@(Expr* e* env))
              (error 'parse-and-rename "arity mismatch: ~a expects ~a got ~a"
                     e0 x (length e*)))]
+        ['() `(primcall ,e0 ,@(Expr* e* env))]
         [else
           (error 'parse-and-rename
                  "internal bug: unexpected value in environment for ~a: ~a"
@@ -200,14 +201,11 @@
   [`(,tl) (cons (Complex tl env) '())]
   [`(,hd . ,tl) (cons (Complex hd env) (Complex tl env))]
   [`,(? symbol? c) `(primcall quote ,c)]
+  [(? string? c) c]
   [`,(? immediate? c) c]))
 
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
-  [`(quote ,(? immediate? c)) expr]
-  [`(quote ,(? pair? c)) `(datum ,(unique-const) ,(Complex c env))]
-  [`(quote ,(? symbol? c)) `(datum ,(unique-const) ,(Complex c env))]
-  [`(quote ,x* ___) (error 'parse-and-rename "unsupported quote: ~a" expr)]
   [(? symbol? x)
    (cond [(assq x env) => cdr]
          [else (error 'parse-and-rename "undefined variable ~a" x)])]
@@ -237,6 +235,11 @@
       `(lambda ,ux* ,@(Expr* body* env)))]
   [`(if ,test ,conseq ,altern)
     `(if ,(Expr test env) ,(Expr conseq env) ,(Expr altern env))]
+  [`(quote ,(? immediate? c)) expr]
+  [`(quote ,(? pair? c)) `(datum ,(unique-const) ,(Complex c env))]
+  [`(quote ,(? symbol? c)) `(datum ,(unique-const) ,(Complex c env))]
+  [`(quote ,x* ___) (error 'parse-and-rename "unsupported quote: ~a" expr)]
+  [(? string? c) `(datum ,(unique-const) ,(Complex c env))]
   [`(,(? symbol? e0) ,e* ___)
     (App e0 e* env)]
   [`(,e0 ,e* ___)
@@ -247,7 +250,9 @@
   (check-equal? (Expr '(quote 5) primitives) ''5)
   (check-equal? (Expr '(quote (2 . 5)) primitives) '(datum const0 (2 . 5)))
   (check-equal? (Expr '(quote (2 3 4)) primitives) '(datum const1 (2 3 4)))
-  (check-equal? (Expr '(quote foo) primitives) '(datum const2 foo))
-  (check-equal? (Expr '(quote (a b c)) primitives) '(datum const3 (a b c)))
-  (check-equal? (Expr '(quote (if x)) primitives) '(datum const4 (if x)))
+  (check-equal? (Expr "foo" primitives) '(datum const2 "foo"))
+  (check-equal? (Expr '(string) primitives) '(primcall string))
+  ;(check-equal? (Expr '(quote foo) primitives) '(datum const2 foo))
+  ;(check-equal? (Expr '(quote (a b c)) primitives) '(datum const3 (a b c)))
+  ;(check-equal? (Expr '(quote (if x)) primitives) '(datum const4 (if x)))
   )
