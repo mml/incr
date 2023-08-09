@@ -1,1 +1,7 @@
 include Mf-base
+
+xdebug:
+	qemu-arm-static -L /usr/arm-linux-gnueabihf -g 9500 out/x-test-program
+
+gdb:
+	(cd $(WORKDIR); gdb-multiarch --quiet --tui -x ../../../debug/setup.gdb --eval-command='target remote localhost:9500' ../$(TARGET))

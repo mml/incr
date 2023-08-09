@@ -66,7 +66,7 @@
 
 (define (set-union* sets)
   (if (null? sets)
-    '()
+    (set)
     (apply set-union sets)))
 
 (module+ test

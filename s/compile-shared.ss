@@ -2,12 +2,8 @@
 
 (provide compile-port)
 (provide scramble-link-register?)
-(provide set-constant)
-(provide lookup-constant)
-(provide define-constant)
-(provide constant)
-(provide bitwise-or)
-(provide shift)
+(provide set-constant lookup-constant define-constant constant)
+(provide bitwise-or shift)
 (provide
   primcall-op primcall-operand1 primcall-operand2 primcall-operand3
   primcall-operand-count primcall-operands)
@@ -127,6 +123,7 @@
 (define-constant true-value (bitwise-or #b1111 (shift 4 #b0110)))
 (define-constant char-mask #b11111111)
 (define-constant char-tag #b00001111)
+(define-constant void-value #b00011111)
 (define-constant char-shift 8)
 (define-constant null-value #b00111111)
 (define-constant fixnum-shift 2)
@@ -134,6 +131,39 @@
 (define-constant vector-tag #b010)
 (define-constant string-tag #b011)
 (define-constant closure-tag #b110)
+(define-constant ptr-mask #b111)
+
+(module+ test
+  (require rackunit)
+  (let ([vals '(false-value true-value void-value null-value)]
+        [tags '(char-tag pair-tag vector-tag string-tag closure-tag)]
+        [masks '(char-mask ptr-mask ptr-mask ptr-mask ptr-mask)])
+    ; none of the values matches any of the tag/mask combos
+    (for-each (lambda (k)
+                (let ([val (lookup-constant k)])
+                  (do ([tags tags (cdr tags)]
+                       [masks masks (cdr masks)])
+                    ((null? tags) (void))
+                    (let ([mask (lookup-constant (car masks))]
+                          [tag (lookup-constant (car tags))])
+                    (check-not-equal? (bitwise-and val mask) tag)))))
+              vals)
+
+    ; with an 8-byte-aligned pointer value, verify all the ptr-masks work
+    (let ([addr #xfffffff8])
+      (do ([tags tags (cdr tags)]
+           [masks masks (cdr masks)])
+        ((null? tags) (void))
+        (when (eq? (car masks) 'ptr-mask)
+          (let* ([mask (lookup-constant (car masks))]
+                 [tag (lookup-constant (car tags))]
+                 [tagged (bitwise-or addr tag)])
+            (check-equal? (bitwise-and addr tag) 0 (format "~s ~s" (car masks) (car tags)))
+            (check-equal? (bitwise-and mask tagged) tag)
+            (check-equal? (bitwise-and (bitwise-not tag)
+                                       tagged)
+                          addr)))))
+    ))
 
 (define (primcall-operand-count expr)
   (length (primcall-operands expr)))

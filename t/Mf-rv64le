@@ -1,1 +1,10 @@
 include Mf-base
+
+last_program = $(shell ls -t run-*/out/x-test-program | head -1)
+workdir = $(shell dirname $(last_program))
+
+xdebug:
+	qemu-riscv64-static -L /usr/riscv64-linux-gnu -g 9999 $(last_program)
+
+gdb:
+	gdb-multiarch --quiet --tui -x ../../debug/setup.gdb --eval-command='target remote localhost:9999' $(last_program)

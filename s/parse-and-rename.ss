@@ -144,6 +144,18 @@
   ['() ''()]
   [`(,hd ,tl* ___) `(primcall cons ,(Expr hd env) ,(List tl* env))]))
 
+(define (Letrec* x* e* body* env)
+  (let* ([ux* (map unique-variable x*)]
+         [xbindings (map (lambda (x) (list x ''#f)) ux*)]
+         [set-expr* (map (lambda (x e)
+                           `(set! ,x ,e))
+                         x* e*)]
+         [env (append (map cons x* ux*) env)])
+    `(let ,xbindings
+       ,@(Expr* set-expr* env)
+       (let ()
+         ,@(Expr* body* env)))))
+
 (define (Letrec x* e* body* env)
   (let* ([ux* (map unique-variable x*)]
          [xbindings (map (lambda (x) (list x ''#f)) ux*)]
@@ -221,6 +233,8 @@
     (List expr* env)]
   [`(letrec ([,x* ,e*] ___) ,body* __1)
     (Letrec x* e* body* env)]
+  [`(letrec* ([,x* ,e*] ___) ,body* __1)
+    (Letrec* x* e* body* env)]
   [`(let* ,binding* ,body* __1)
     (Let* binding* body* env)]
   [`(let ([,x* ,e*] ___) ,body* __1)
@@ -235,6 +249,10 @@
       `(lambda ,ux* ,@(Expr* body* env)))]
   [`(if ,test ,conseq ,altern)
     `(if ,(Expr test env) ,(Expr conseq env) ,(Expr altern env))]
+  [`(when ,test ,conseq)
+    (Expr `(if ,test ,conseq (void)) env)]
+  [`(unless ,test ,altern)
+    (Expr `(if ,test (void) ,altern) env)]
   [`(quote ,(? immediate? c)) expr]
   [`(quote ,(? pair? c)) `(datum ,(unique-const) ,(Complex c env))]
   [`(quote ,(? symbol? c)) `(datum ,(unique-const) ,(Complex c env))]

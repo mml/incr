@@ -64,6 +64,48 @@
           (len (list 1 2 3 4 5 6)))
         "6")
 
+      (test-case        ; from tspl4
+        (letrec* ([sum (lambda (x)
+                         (if (zero? x)
+                           0
+                           (+ x (sum (- x 1)))))]
+                  [f (lambda () (cons n n-sum))]
+                  [n 15]
+                  [n-sum (sum n)])
+          (f))
+        "(15 . 120)")
+
+      (test-case
+        (let* ([n 0]
+               [m 0]
+               [incr (lambda ()
+                       (set! n (add1 n))
+                       (when (< m 10)
+                         (set! m (add1 m))))])
+          (letrec ([doit (lambda (x)
+                           (if (zero? x)
+                             (cons n m)
+                             (begin
+                               (incr)
+                               (doit (sub1 x)))))])
+            (doit 20)))
+        "(20 . 10)")(test-case
+
+        (let* ([n 0]
+               [m 0]
+               [incr (lambda ()
+                       (set! n (add1 n))
+                       (unless (> n 6)
+                         (set! m (+ n m))))])
+          (letrec ([doit (lambda (x)
+                           (if (zero? x)
+                             (cons n m)
+                             (begin
+                               (incr)
+                               (doit (sub1 x)))))])
+            (doit 20)))
+        "(20 . 21)")
+
       ;;; Letrec bug
       ; TODO(mml): both of these should fail with a runtime exception about
       ; using a variable before it's defined

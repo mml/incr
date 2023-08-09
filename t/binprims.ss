@@ -40,6 +40,11 @@
       (test-case (< 1 0) "#f")
       (test-case (< 0 0) "#f")
 
+      ; >
+      (test-case (> 0 1) "#f")
+      (test-case (> 1 0) "#t")
+      (test-case (> 0 0) "#f")
+
       ; *
       (test-case (* 1 0) "0")
       (test-case (* 0 1) "0")

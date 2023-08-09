@@ -6,7 +6,9 @@ DIRS = output $(tests:%=run-%/out)
 test: $(SRCS) $(tests)
 
 $(tests): % : %.ss drivero | output run-%/out
-	racket -e '(require "../s/test-driver.ss") (require "$@.ss") (parameterize ([output-dir "run-$@/out"] [precompiled-driver-object "../c/driver.o"]) (runtests))' > output/$@.out
+	racket -e '(require "../s/test-driver.ss") (require "$@.ss") (parameterize ([output-dir "run-$@/out"] [precompiled-driver-object "../c/driver.o"]) (runtests))' \
+		> output/$@.out \
+		|| false #|| (cat output/$@.out; false)
 
 drivero:
 	$(MAKE) -C ../c driver.o

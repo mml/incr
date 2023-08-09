@@ -454,6 +454,8 @@
      (emit-allocation-primcall op expr si env)]
     [(vector-set!)
      (emit-side-effect-primcall op expr si env)]
+    [(void)
+     (emit-move32 "r0" (constant void-value))]
     [(add1)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "add r0,r0,#~a" (immediate-rep 1) (// "add1"))]
@@ -528,6 +530,14 @@
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
      (emit "  cmp r1,r0")
+     (emit-move32 'lt "r0" (immediate-rep #t))
+     (emit-move32 'ge "r0" (immediate-rep #f))]
+    [(>)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  str r0, [sp,#~a]" si)
+     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
+     (emit "  ldr r1, [sp,#~a]" si)
+     (emit "  cmp r0,r1")
      (emit-move32 'lt "r0" (immediate-rep #t))
      (emit-move32 'ge "r0" (immediate-rep #f))]
     [(*)

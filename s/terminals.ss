@@ -13,11 +13,13 @@
   (and (symbol? x)
        (not (primitive? x))))
 
+(define nullary-primitives '(void))
+
 (define unary-primitives
   '(add1 sub1 integer->char char->integer zero? not null? car cdr cadr cddr caddr vector-length))
 
 (define binary-primitives
-  '(+ - = * < cons make-vector vector-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right eq?))
+  '(+ - = * < > cons make-vector vector-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right eq?))
 
 (define ternary-primitives
   '(vector-set!))
@@ -31,7 +33,8 @@ variable-arity-spec = ()        if any number of parameters allowed
   '([string ()]))
 
 (define primitives
-  (append (map (lambda (pr) (cons pr 1)) unary-primitives)
+  (append (map (lambda (pr) (cons pr 0)) nullary-primitives)
+          (map (lambda (pr) (cons pr 1)) unary-primitives)
           (map (lambda (pr) (cons pr 2)) binary-primitives)
           (map (lambda (pr) (cons pr 3)) ternary-primitives)
           variable-arity-primitives))

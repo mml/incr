@@ -2,6 +2,9 @@
   (provide runtests)
   (require "../s/test-driver.ss")
   (define (runtests)
+    (test-cases "Nullary primitives"
+      (test-case (void) "#<void>"))
+
     (test-cases "Unary primitives"
       ;;; unary primitives
       ; add1

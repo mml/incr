@@ -218,12 +218,13 @@
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
     (emit "/* ~a {{{ */" op)
-    ;(printf "Emitting ~a~n" op)
     (case op
       [(cons make-vector string)
        (emit-allocation-primcall op expr si env)]
       [(vector-set!)
        (emit-side-effect-primcall op expr si env)]
+      [(void)
+       (emit "li a0,~a" (constant void-value))]
       [(add1)
        (emit-expr (primcall-operand1 expr) si env)
        (emit "addi a0,a0,~a" (immediate-rep 1))]
@@ -303,6 +304,19 @@
          (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
          (emit "ld a1,~a(sp)" si)
          (emit "  blt a1,a0, ~a" L-return-true)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" L-end)
+         (emit-label L-return-true)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label L-end))]
+      [(>)
+       (let ([L-return-true (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sd a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "ld a1,~a(sp)" si)
+         (emit "  blt a0,a1, ~a" L-return-true)
          (emit "li a0, ~a" (immediate-rep #f))
          (emit "j ~a" L-end)
          (emit-label L-return-true)

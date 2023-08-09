@@ -17,6 +17,8 @@
 #define CHAR_TAG 0b00001111
 #define CHAR_SHIFT 8
 
+#define VOID_VALUE 0b00011111
+
 #define NULL_VALUE 0b00111111
 
 #define VECTOR_TAG 0b010
@@ -120,6 +122,8 @@ void print_ptr(ptr_t val) {
     printf("#f");
   } else if (val == TRUE_VALUE) {
     printf("#t");
+  } else if (val == VOID_VALUE) {
+    printf("#<void>");
   } else if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
     printf("%d", val >> FIXNUM_SHIFT);
   } else if ((val & CHAR_MASK) == CHAR_TAG) {
