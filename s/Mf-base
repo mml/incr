@@ -1,7 +1,3 @@
-WORKDIR = out
-TARGET = $(WORKDIR)/x-test-program
-OBJECT = $(WORKDIR)/x-test-program.o
-ASSEMBLY = $(WORKDIR)/x-test-program.s
 SRCS = $(shell cd ../../s; echo *.ss)
 zo_file = $(dir $(1))compiled/$(patsubst %.ss,%_ss.zo,$(notdir $(1)))
 ZO_FILES = $(foreach file,$(SRCS) machine.ss config.ss,$(call zo_file,$(file)))
@@ -9,8 +5,10 @@ test_scheme = $(foreach file,$(SRCS),test-$(file))
 
 .PHONY: test unit debug dump raco cat edit clean realclean zo
 
-test: $(ZO_FILES) | $(WORKDIR)
-	racket tests.ss
+all: zo
+
+test: zo
+	$(MAKE) -C ../t test
 
 unit: $(ZO_FILES)
 	raco test --table --fresh-user --deps -x -j 20 *.ss
