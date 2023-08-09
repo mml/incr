@@ -41,9 +41,9 @@ while [[ $# != 0 ]]; do
       ;;
     --toolprefix=*)
       toolprefix=${1#*=}
-      CC="${toolprefix}${CC}"
-      AS="${toolprefix}${AS}"
-      OBJDUMP="${toolprefix}${OBJDUMP}"
+      ;;
+    -x)
+      x=yes
       ;;
     *)
       echo "option '$1' unrecognized or missing an argument; try $0 --help"
@@ -65,6 +65,20 @@ if [[ -z "$m" ]] {
   }
 }
 
+if [[ $x = "yes" ]] {
+  case $m in
+    rv64le)
+      toolprefix=riscv64-linux-gnu-
+      ;;
+    arm32le)
+      toolprefix=arm-linux-gnueabihf-
+      ;;
+  esac
+}
+
+CC="${toolprefix}${CC}"
+AS="${toolprefix}${AS}"
+OBJDUMP="${toolprefix}${OBJDUMP}"
 
 if [[ "$help" = "yes" ]] {
   cat<<EOT
@@ -75,6 +89,7 @@ Purpose:
 Options (defaults shown in parens):
   --machine=<machine type>              explicitly specify machine type ($m)
   --toolprefix=<prefix>                 prefix tool (compiler, assembler, ...) names
+  -x                                    use standard cross-compile prefix for machine type
 EOT
   exit 0
 }
