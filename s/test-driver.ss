@@ -9,19 +9,19 @@
 (provide test-case)
 (provide /test-case)
 (provide skip-test-case)
+(provide output-dir)
+(provide precompiled-driver-object)
 
 ; Racketisms
 (define system-successful? system)
 
 (define output-dir
-  (make-parameter
-    "out"
-    string?))
+  (make-parameter "out"))
 
 (define assembly-file
-  (make-parameter
-    "x-test-program.s"
-    string?))
+  (make-parameter "x-test-program.s"))
+
+(define precompiled-driver-object (make-parameter #f))
 
 (define (assembly-path) (string-append (output-dir) "/" (assembly-file)))
 (define (object-path) (string-replace (assembly-path) ".s" ".o"))
@@ -47,7 +47,16 @@
     (error 'gcc "build error")))
 
 (define (build)
-  (unless (system-successful? (format "~a -DNO_NEWLINE -static -g -o ~a ~a ~a" c-compiler-path (program-path) (string-append (output-dir) "/driver.o") (object-path)))
+  (unless
+    (system-successful?
+      (format
+        "~a -DNO_NEWLINE -static -g -o ~a ~a ~a"
+        c-compiler-path
+        (program-path)
+        (if (not (precompiled-driver-object))
+          (string-append (output-dir) "/driver.o")
+          (precompiled-driver-object))
+        (object-path)))
     (error 'gcc "build error")))
 
 (define (execute)
@@ -68,12 +77,16 @@
   (lambda (stx)
     (syntax-case stx (skip test-case)
       [(_ desc (test-case expr expected) ...)
-       #'(/test-cases desc (list (quote expr) ...) (list expected ...) #f)]
+       #'(begin
+           (when (not (precompiled-driver-object)) (build-driver))
+           (/test-cases desc (list (quote expr) ...) (list expected ...) #f))]
       [(_ skip desc (test-case expr expected) ...)
        #'(/test-cases desc (list (quote expr) ...) (list expected ...) #t)])))
 
 (define-syntax (test-case stx)
-  (syntax-case stx ()
+  (syntax-case stx (str)
+    [(_ str expr expected)
+     (syntax (/test-case (quote expr) (string-append "\"" expected "\"")))]
     [(_ expr expected)
      (syntax (/test-case (quote expr) expected))]))
 
@@ -82,11 +95,12 @@
     [skip? (printf "Skipping cases ~s~n" desc)]
     [else
       (printf "Cases '~a'~n" desc)
-      (let f ([exprs exprs] [expecteds expecteds])
-        (cond
-          [(null? exprs) (void)]
-          [(/test-case (car exprs) (car expecteds))
-           (f (cdr exprs) (cdr expecteds))]))]))
+      (let ([t0 (current-milliseconds)])
+        (let f ([exprs exprs] [expecteds expecteds])
+          (cond
+            [(null? exprs) (printf "~vs elapsed for ~s~n" (/ (- (current-milliseconds) t0) 1000.0) desc)]
+            [(/test-case (car exprs) (car expecteds))
+             (f (cdr exprs) (cdr expecteds))])))]))
 
 (define (/test-case expr expected)
   (printf "Test: ~a~n" (pretty-format expr))
@@ -104,5 +118,3 @@
 
 (define (/skip-test-case expr)
   (printf "SKIP ~a~n" (pretty-format expr)))
-
-(build-driver)

@@ -1,0 +1,21 @@
+SRCS = $(shell cd ../../t; echo *.ss)
+
+tests = vectors procedures prims binprims catchall
+DIRS = output $(tests:%=run-%/out)
+
+test: $(SRCS) $(tests)
+
+oldtests:
+	$(MAKE) -C ../s test | tee output/$@.out
+
+$(tests): % : %.ss drivero | output run-%/out
+	racket -e '(require "../s/test-driver.ss") (require "$@.ss") (parameterize ([output-dir "run-$@/out"] [precompiled-driver-object "../c/driver.o"]) (runtests))' | tee output/$@.out
+
+drivero:
+	$(MAKE) -C ../c driver.o
+
+$(DIRS):
+	mkdir -p $@
+
+$(SRCS):
+	ln -s ../../t/$@

@@ -86,7 +86,7 @@ perl -p -e 's/\${CC}/'$CC'/g;' \
         -e 's/\${AS}/'$AS'/g;' \
   < s/config.ss.in > $w/s/config.ss
 
-cat > $w/forensics/config.mk <<EOT
+cat > $w/c/config.mk <<EOT
 CC=$CC
 AS=$AS
 OBJDUMP=$OBJDUMP

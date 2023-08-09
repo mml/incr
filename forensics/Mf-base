@@ -1,4 +1,4 @@
-include config.mk
+include ../c/config.mk
 
 SRCS = $(shell cd ../../forensics; echo *.c)
 RUN_SRCS = sizes.c align.c

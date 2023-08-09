@@ -1,5 +1,6 @@
 (module tests racket
-  (require "test-driver.ss")
+  (provide runtests)
+  (require "../s/test-driver.ss")
 
   (define (str s) (string-append "\"" s "\""))
 
@@ -31,112 +32,6 @@
                  "#t")
       )
 
-    (test-cases "vectors"
-      (test-case (make-vector 0 0) "#()")
-      (test-case (make-vector 1 0) "#(0)")
-      (test-case (make-vector 2 1) "#(1 1)")
-      (test-case (make-vector 3 2) "#(2 2 2)")
-      (test-case (make-vector 10 0) "#(0 0 0 0 0 0 0 0 0 0)")
-      (test-case
-        (vector-length (make-vector 500 1))
-        "500")
-      (test-case
-        (let ([v (make-vector 5 0)])
-          (vector-set! v 1 20)
-          v)
-        "#(0 20 0 0 0)")
-      (test-case
-        (let ([v (make-vector 5 0)]
-              [u (make-vector 5 10)])
-          (vector-set! v 1 (begin
-                             (vector-set! u 3 30)
-                             20))
-          v)
-        "#(0 20 0 0 0)")
-      (test-case
-        (let ([v (make-vector 5 0)])
-          (vector-set! v 0 0)
-          (vector-set! v 1 1)
-          (vector-set! v 2 2)
-          (vector-set! v 3 3)
-          (vector-set! v 4 4)
-          v)
-        "#(0 1 2 3 4)")
-      (test-case
-        (let ([v (make-vector 5 0)])
-          (letrec
-            ([uv (lambda (v n)
-                   (cond
-                     [(< n 0) v]
-                     [else
-                       (vector-set! v n n)
-                       (uv v (sub1 n))]))])
-            (uv v 4)))
-        "#(0 1 2 3 4)")
-      (test-case
-        (make-vector 40 0)
-        "#(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)")
-      (test-case
-        (letrec ([loop (lambda (n v)
-                         (if (zero? n)
-                           #t
-                           (loop (sub1 n) (make-vector 40 n))))])
-          (loop 41 #f))
-        "#t")
-      (test-case
-        (let* ([size 40] [v (make-vector size #f)])
-          (letrec
-            ([init (lambda (n)
-                     (cond
-                       [(< n 0)]
-                       [else
-                         (letrec
-                           ([vv (make-vector size #f)]
-                            [setup (lambda (m)
-                                     (cond
-                                       [(< m 0) v]
-                                       [else
-                                         (vector-set! vv m (* m n))
-                                         (setup (sub1 m))]))])
-                            (vector-set! v n vv)
-                            (setup (sub1 size)))
-                         (init (sub1 n))]))])
-            (init (sub1 size))
-            (letrec
-              ([check (lambda (m n)
-                        (if (< m 0)
-                            #t
-                            (and (= (* m n) (vector-ref (vector-ref v m) n))
-                                 (= (* m n) (vector-ref (vector-ref v n) m))
-                                 (check (sub1 m) n))))]
-               [check* (lambda (n)
-                         (if (< n 0)
-                             #t
-                             (and (check (sub1 size) n)
-                                  (check* (sub1 n)))))])
-              (check* (sub1 size)))))
-        "#t")
-
-      ; Something that takes long enough to be a speed test.
-      (test-case
-        (let ([size 10000])
-          (letrec
-            ([v (make-vector size 1)]
-             [f (lambda (n acc)
-                  (cond
-                    [(< n 0) acc]
-                    [else (f (sub1 n) (+ acc (vector-ref v n)))]))]
-             [g (lambda (n acc)
-                  (cond
-                    [(zero? n) acc]
-                    [else (g
-                            (sub1 n)
-                            (+ acc
-                               (bitwise-arithmetic-shift-right
-                                 (f (sub1 size) 0) 4)))]))])
-            (g 10000 0)))
-        "6250000")
-      )
 
     (test-cases "macro expansion"
       (test-case (and) "#t")
@@ -323,132 +218,6 @@
       ; null
       (test-case '() "()"))
 
-    (test-cases "Unary primitives"
-      ;;; unary primitives
-      ; add1
-      (test-case (add1 0) "1")
-      (test-case (add1 (add1 0)) "2")
-      (test-case (add1 (add1 -2)) "0")
-
-      ; sub1
-      (test-case (sub1 2) "1")
-      (test-case (sub1 1) "0")
-      (test-case (sub1 0) "-1")
-      (test-case (sub1 (sub1 0)) "-2")
-      (test-case (sub1 (sub1 2)) "0")
-
-      ; zero?
-      (test-case (zero? 0) "#t")
-      (test-case (zero? 1) "#f")
-      (test-case (zero? -1) "#f")
-      (test-case (zero? #\t) "#f")
-      (test-case (zero? #\f) "#f")
-
-      ; not
-      (test-case (not #f) "#t")
-      (test-case (not #t) "#f")
-      (test-case (not 0) "#f")
-
-      ; null?
-      (test-case (null? '()) "#t")
-      (test-case (null? #f) "#f")
-
-      (test-case (sub1 (add1 0)) "0")
-      (test-case (add1 (sub1 0)) "0")
-
-      (test-case (sub1 (add1 123456789)) "123456789")
-      (test-case (add1 (sub1 123456789)) "123456789")
-
-      ;; integer<->char
-      (test-case (integer->char 65) "#\\A")
-      (test-case (char->integer #\A) "65")
-      (test-case (integer->char (add1 (char->integer #\l))) "#\\m")
-      )
-
-    (test-cases "Binary primitives"
-      ; +
-      (test-case (+ 2 2) "4")
-      (test-case (+ 0 0) "0")
-      (test-case (+ -1000 1000) "0")
-      (test-case (+ 2048 2048) "4096")
-      (test-case (+ (+ (+ 1 2)
-                        (+ 3 4))
-                     (+ (+ 5 6)
-                        (+ 7 8))) "36")
-
-      ; -
-      (test-case (- 4 2) "2")
-      (test-case (- 0 0) "0")
-      (test-case (- 0 1000) "-1000")
-      (test-case (- 4096 2048) "2048")
-      (test-case (- (- (- 2048 1024)
-                        (- 1024 512))
-                     (- (- 512 256)
-                        (- 256 128))) "384")
-
-
-      (test-case (+ (- 4 2) (- 8 6)) "4")
-      (test-case (- (+ 100 100) (+ 10 10)) "180")
-
-      ; =
-      (test-case (= 1 1) "#t")
-      (test-case (= 1 2) "#f")
-      (test-case (not (= 1 2)) "#t")
-
-      (test-case (= (+ 5 5) (+ 9 1)) "#t")
-      (test-case (= (- 30 10) (- 105 85)) "#t")
-
-      ; <
-      (test-case (< 0 1) "#t")
-      (test-case (< 1 0) "#f")
-      (test-case (< 0 0) "#f")
-
-      ; *
-      (test-case (* 1 0) "0")
-      (test-case (* 0 1) "0")
-      (test-case (* 1 1) "1")
-      (test-case (* 10 47) "470")
-      (test-case (* 47 10) "470")
-      (test-case (* -10 47) "-470")
-      (test-case (* -47 10) "-470")
-      (test-case (* (* (* 10 9)
-                        (* 8 7))
-                     (* (* 6 5)
-                        (* 4 3))) "1814400")
-
-      (test-case (* (+ 30 70) (+ 35 65)) "10000")
-      (test-case (* (- 70 30) (- 90 50)) "1600")
-      (test-case (= (* (+ 10 20) (+ 30 40))
-                     (+ (* 10 (+ 30 40))
-                        (* 20 (+ 30 40))))
-                 "#t")
-      
-      ;; bit shifting
-      (test-case (bitwise-arithmetic-shift 1 10) "1024")
-      (test-case (bitwise-arithmetic-shift-left 1 10) "1024")
-      (test-case (bitwise-arithmetic-shift-right 1 -10) "1024")
-
-      (test-case (bitwise-arithmetic-shift 65536 -6) "1024")
-      (test-case (bitwise-arithmetic-shift-left 65536 -6) "1024")
-      (test-case (bitwise-arithmetic-shift-right 65536 6) "1024")
-
-      (test-case (bitwise-arithmetic-shift-right 1 1) "0")
-
-      (test-case (bitwise-arithmetic-shift -1 10) "-1024")
-      (test-case (bitwise-arithmetic-shift-left -1 10) "-1024")
-      (test-case (bitwise-arithmetic-shift-right -1 -10) "-1024")
-
-      (test-case (bitwise-arithmetic-shift -65536 -6) "-1024")
-      (test-case (bitwise-arithmetic-shift-left -65536 -6) "-1024")
-      (test-case (bitwise-arithmetic-shift-right -65536 6) "-1024")
-
-      (test-case (bitwise-arithmetic-shift-right -1 1) "-1")
-      (test-case (bitwise-arithmetic-shift -65536 -15) "-2")
-      (test-case (bitwise-arithmetic-shift -65536 -16) "-1")
-      (test-case (bitwise-arithmetic-shift -65536 -17) "-1")
-      (test-case (bitwise-arithmetic-shift -65536 -30) "-1")
-      (test-case (bitwise-arithmetic-shift -65536 -32) "-1")
-      )
 
     (test-cases "let"
       (test-case (let ([b 10]) b) "10")
@@ -533,91 +302,6 @@
       (test-case (cons (string #\a) (string #\b)) "(\"a\" . \"b\")")
       )
 
-    (test-cases "procedures"
-      (test-case
-        (let ([ten (lambda () 10)])
-          (ten))
-        "10")
-
-      (test-case
-        (let ([eleven (lambda () (add1 10))])
-          (eleven))
-        "11")
-
-      (test-case
-        (let ([double (lambda (x) (* x 2))])
-          (double 10))
-        "20")
-
-      (test-case
-        (let ([double (lambda (x) (* x 2))])
-          (double (double 10)))
-        "40")
-
-      (test-case
-        (let ([double (lambda (x) (* x 2))]
-              [triple (lambda (x) (* x 3))])
-          (= (double (triple #xff0000))
-             (triple (double #xff0000))))
-        "#t")
-
-      (test-case
-        (let ([add (lambda (a b) (+ a b))])
-          (add 20 20))
-        "40")
-
-      (test-case
-        (let ([g (lambda (f) (f 20 20))]
-              [add (lambda (a b) (+ a b))])
-          (g add))
-        "40")
-
-      (test-case (let ([add (lambda (x y) (+ x y))]
-                       [mul (lambda (x y) (* x y))])
-                   (mul
-                     (add 10 15)
-                     (add 20 25)))
-                 "1125")
-      
-      (test-case (let ([fxid (lambda (n self) (if (zero? n) n (add1 (self (sub1 n) self))))])
-                   (fxid 0 fxid))
-                 "0")
-
-      (test-case (let ([fxid (lambda (n self) (if (zero? n) n (add1 (self (sub1 n) self))))])
-                   (fxid 1 fxid))
-                 "1")
-
-      (test-case (let ([fxid (lambda (n self) (if (zero? n) n (add1 (self (sub1 n) self))))])
-                   (fxid 2 fxid))
-                 "2")
-
-      (test-case (let ([len (lambda (l len) (if (null? l) 0 (+ 1 (len (cdr l) len))))])
-                   (len '() len))
-                 "0")
-
-      (test-case (let ([mkl (lambda (n self) (if (zero? n) '() (cons #f (self (sub1 n) self))))])
-                   (mkl 5 mkl))
-                 "(#f #f #f #f #f)")
-      (test-case
-        (let ([mkl (lambda (n self) (if (zero? n) '() (cons #f (self (sub1 n) self))))]
-              [len (lambda (l self) (if (null? l) 0 (add1 (self (cdr l) self))))])
-          (len (mkl 5 mkl) len))
-        "5")
-      (test-case
-        (let ([fib (lambda (n self)
-                     (if (zero? n) 1
-                         (if (= 1 n) 1
-                             (+ (self (- n 1) self)
-                                (self (- n 2) self)))))])
-          (fib 33 fib))
-        "5702887")
-      (test-case
-        (let ([add (lambda (a b) (+ a b))])
-          (let ([c 10] [d 20] [e 30] [f 40] [g 50] [h 60] [i 70] [j 80])
-            (* (add (add (add c d) e) f)
-               (add (add (add g h) i) j))))
-        "26000")
-      )
 
     (test-cases "tail calls"
       ; this one does no allocation, so it just pressures stack frames
@@ -708,9 +392,8 @@
     #|
     These test cases lifted directly from tspl4.
     https://www.scheme.com/tspl4/objects.html#./objects:s10
-    |#
 
-    (test-cases skip "eq?"
+    (test-cases "eq?"
       (test-case (eq? 'a 3)  "#f")
       (test-case (eq? #t 't)  "#f")
       (test-case (eq? "abc" 'abc)  "#f")
@@ -788,6 +471,5 @@
                               x))])
                    (eq? (f 0) (f 0)))  "#f")
       )
-
-  (module+ main
-    (runtests)))
+    |#
+)

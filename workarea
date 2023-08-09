@@ -43,9 +43,20 @@ mkdir -p $W/s
   workln $M.def machine.ss
 )
 
+mkdir -p $W/t
+(
+  cd $W/t
+  workln ../../t/Mf-$M Mf-$M
+  workln Mf-$M Makefile
+  workln ../../t/Mf-base Mf-base
+)
+
 mkdir -p $W/c
 (
   cd $W/c
+  workln ../../c/Mf-$M Mf-$M
+  workln Mf-$M Makefile
+  workln ../../c/Mf-base Mf-base
   workln ../../c/driver.c driver.c
   workln ../../c/$M.h $M.h
   workln $M.h machine.h
