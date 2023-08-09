@@ -40,6 +40,7 @@ set $VECTOR_TAG = 0b010
 
 set $PAIR_TAG = 0b001
 set $ADDRESS_MASK = 0xfffffffffffffff8
+set $PTR_MASK = 0b111
 set $WORDSIZE = 8
 
 define print_vector
@@ -70,15 +71,19 @@ define print_ptr
           printf "%d", $arg0 >> $FIXNUM_SHIFT
         else
           if (($arg0 & $CHAR_MASK) == $CHAR_TAG)
-            printf "#\\%c", ((char) $arg0 >> CHAR_SHIFT)
+            printf "#\\%c", ((char) ($arg0 >> $CHAR_SHIFT))
           else
-            if ($arg0 & $VECTOR_TAG)
+            if (($arg0 & $PTR_MASK) == $VECTOR_TAG)
               print_vector ($arg0 & $ADDRESS_MASK)
             else
-              if ($arg0 & $PAIR_TAG)
+              if (($arg0 & $PTR_MASK) == $PAIR_TAG)
                 print_pair ($arg0 & $ADDRESS_MASK)
               else
-                printf "Uknown $arg0ue 0x%04x\n", $arg0
+                if (($arg0 & $PTR_MASK) == $STRING_TAG)
+                  print_string ($arg0 & $ADDRESS_MASK)
+                else
+                  printf "Unknown value 0x%08x\n", $arg0
+                end
               end
             end
           end

@@ -100,7 +100,7 @@ void print_pair(ptr_t *addr) {
 void print_cdr(ptr_t cdr) {
   if (cdr == NULL_VALUE) {
     return;
-  } else if (cdr & PAIR_TAG) {
+  } else if (PAIR_TAG == (cdr & PTR_MASK)) {
     ptr_t *addr = (ptr_t *)(cdr & ADDRESS_MASK);
     ptr_t cadr = addr[0];
     ptr_t cddr = addr[1];
@@ -116,12 +116,12 @@ void print_cdr(ptr_t cdr) {
 void print_ptr(ptr_t val) {
   if (val == NULL_VALUE) {
     printf("()");
-    } else if (val == FALSE_VALUE) {
-      printf("#f");
-    } else if (val == TRUE_VALUE) {
-      printf("#t");
-    } else if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
-      printf("%d", val >> FIXNUM_SHIFT);
+  } else if (val == FALSE_VALUE) {
+    printf("#f");
+  } else if (val == TRUE_VALUE) {
+    printf("#t");
+  } else if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
+    printf("%d", val >> FIXNUM_SHIFT);
   } else if ((val & CHAR_MASK) == CHAR_TAG) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);
@@ -145,8 +145,8 @@ int main(int argc, char **argv) {
   print_ptr(val);
 
 #ifndef NO_NEWLINE
-	printf("\n");
+  printf("\n");
 #endif
   deallocate_protected_space(heap_base, heap_size);
-	return 0;
+  return 0;
 }
