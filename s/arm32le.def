@@ -637,7 +637,7 @@
 
 (define (emit-constant-ref name si env)
   (emit "/* constant-ref ~a */" name)
-  (emit "  ldr r0,=~a" name)
+  (emit "  ldr r1,=~a" name)
   (emit "  ldr r0,[r1]"))
 
 (define (emit-bss dlabels)

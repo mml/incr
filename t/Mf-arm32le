@@ -1,1 +1,10 @@
 include Mf-base
+
+last_program = $(shell ls -t run-*/out/x-test-program | head -1)
+workdir = $(shell dirname $(last_program))
+
+xdebug:
+	qemu-arm-static -L /usr/arm-linux-gnueabihf -g 9500 $(last_program)
+
+gdb:
+	gdb-multiarch --quiet --tui -x ../../debug/setup.gdb --eval-command='target remote localhost:9500' $(last_program)

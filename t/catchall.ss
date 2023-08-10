@@ -26,6 +26,24 @@
                       ("wxy" 0 ())))))
                  "(\"abc\" \"de\" #f (\"ghi\" \"jkl\" (#t #\\u #\\V (\"wxy\" 0 ()))))")
 
+      (test-case
+        (let ([tl '(1 2 3 4 5)]
+              [hd '(0)]
+              [junk '(6)]
+              [x '(7)]
+              [y '(8)])
+          (cons (car hd) tl))
+        "(0 1 2 3 4 5)")
+
+      (test-case
+        (let ([tl '(1 2 3 4 5)]
+              [hd '(0)]
+              [junk '(6)]
+              [x '(7)]
+              [y '(8)])
+          (cons (car tl) hd))
+        "(1 0)")
+
       #;(test-case (let ([f (lambda ()
                             (quote (1 . "H")))])
                    (eq? (f) (f)))
