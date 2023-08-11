@@ -7,8 +7,11 @@
 (require "generators.ss")
 (require "terminals.ss")
 
+(define (initial-env)
+  (cons (cons 'memv Memv) primitives))
+
 (define (parse-and-rename expr)
-  (Expr expr primitives))
+  (Expr expr (initial-env)))
 
 (module+ test
   (require rackunit)
@@ -38,11 +41,23 @@
              `(primcall ,e0 ,@(Expr* e* env))
              (error 'parse-and-rename "arity mismatch: ~a expects ~a got ~a"
                     e0 x (length e*)))]
+        [(procedure? x)
+         (x e* env)]
         ['() `(primcall ,e0 ,@(Expr* e* env))]
         [else
           (error 'parse-and-rename
                  "internal bug: unexpected value in environment for ~a: ~a"
                  e0 x)]))))
+
+; TODO: add tests for memv
+(define (Memv arg* env)
+  (let* ([t (tmp)])
+    (Expr `(letrec ([,t (lambda (x ls)
+                          (cond
+                            [(null? ls) #f]
+                            [(eqv? (car ls) x) ls]
+                            [else (,t x (cdr ls))]))])
+             (,t ,@arg*)) env)))
 
 (define (Cond cond* env) (match cond*
   [`([else ,result* __1])
