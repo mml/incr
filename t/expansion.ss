@@ -89,7 +89,9 @@
                                (incr)
                                (doit (sub1 x)))))])
             (doit 20)))
-        "(20 . 10)")(test-case
+        "(20 . 10)")
+
+      (test-case
 
         (let* ([n 0]
                [m 0]
@@ -105,6 +107,85 @@
                                (doit (sub1 x)))))])
             (doit 20)))
         "(20 . 21)")
+
+       (test-case
+         (case 0
+           [(0) #f]
+           [(1) #t])
+         "#f")
+ 
+       (test-case
+         (case 1
+           [(0) #f]
+           [(1) #t])
+         "#t")
+ 
+       (test-case
+         (case 2
+           [(0) #f]
+           [(1) #t]
+           [else "neither"])
+         "\"neither\"")
+ 
+       (test-case
+         (let ()
+           (define x 10)
+           (+ x x))
+         "20")
+ 
+       (test-case
+         (let ([x 10])
+           (define x 20)
+           (define y (+ x x))
+           y)
+         "40")
+
+       (test-case
+         (let ()
+           (define l '(1 2 3 4 5 6 7 8 9 10))
+           (define even?
+             (lambda (n)
+               (cond
+                 [(> n 1) (even? (- n 2))]
+                 [(< n -1) (even? (+ n 2))]
+                 [else (zero? n)])))
+           (define odd?
+             (lambda (n)
+               (not (even? n))))
+           (define sum-odd (lambda (sum)
+             (if (null? l)
+               sum
+               (let ([carl (car l)])
+                 (if (odd? carl)
+                   (begin
+                     (set! l (cdr l))
+                     (sum-even (+ (* 10 carl) sum)))
+                   (sum-even sum))))))
+           (define sum-even (lambda (sum)
+             (if (null? l)
+               sum
+               (let ([carl (car l)])
+                 (if (even? carl)
+                   (begin
+                     (set! l (cdr l))
+                     (sum-odd (+ carl sum)))
+                   (sum-odd sum))))))
+           (sum-even 0))
+         "280")
+
+      (test-case
+        (let ([lookup (lambda (n)
+                        (case n
+                          [(1) "one"]
+                          [(2) "two"]
+                          [(3 4 5 6 7 8 9) "single-digit"]
+                          [else n]))])
+          (letrec ([maplookup (lambda (l)
+                                (if (null? l)
+                                  '()
+                                  (cons (lookup (car l)) (maplookup (cdr l)))))])
+            (maplookup '(10 20 30 5 2 1 0))))
+        "(10 20 30 \"single-digit\" \"two\" \"one\" 0)")
 
       ;;; Letrec bug
       ; TODO(mml): both of these should fail with a runtime exception about
