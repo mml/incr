@@ -1,0 +1,4 @@
+include config.mk
+
+driver.o: driver.c machine.h
+	$(CC) -DNO_NEWLINE -g -o $@ -c $<
