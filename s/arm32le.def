@@ -516,7 +516,7 @@
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
      (emit "  sub r0,r1,r0")]
-    [(=)
+    [(= eq? eqv?)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)

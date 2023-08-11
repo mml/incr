@@ -283,7 +283,7 @@
        (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
        (emit "ld a1,~a(sp)" si)
        (emit "sub a0,a1,a0")]
-      [(=)
+      [(= eq? eqv?)
        (let ([L-operands-equal (unique-label)]
              [L-end (unique-label)])
          (emit-expr (primcall-operand1 expr) si env)
