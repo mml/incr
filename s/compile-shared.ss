@@ -130,14 +130,15 @@
 (define-constant pair-tag #b001)
 (define-constant vector-tag #b010)
 (define-constant string-tag #b011)
+(define-constant symbol-tag #b100)
 (define-constant closure-tag #b110)
 (define-constant ptr-mask #b111)
 
 (module+ test
   (require rackunit)
   (let ([vals '(false-value true-value void-value null-value)]
-        [tags '(char-tag pair-tag vector-tag string-tag closure-tag)]
-        [masks '(char-mask ptr-mask ptr-mask ptr-mask ptr-mask)])
+        [tags '(char-tag pair-tag vector-tag string-tag closure-tag symbol-tag)]
+        [masks '(char-mask ptr-mask ptr-mask ptr-mask ptr-mask ptr-mask)])
     ; none of the values matches any of the tag/mask combos
     (for-each (lambda (k)
                 (let ([val (lookup-constant k)])
@@ -149,11 +150,19 @@
                     (check-not-equal? (bitwise-and val mask) tag)))))
               vals)
 
+    ; no tag is repeated
+    (do ([tags tags (cdr tags)])
+      [(null? tags) (void)]
+      (let ([t1 (car tags)])
+        (for-each (lambda (t2)
+                    (check-not-equal? t1 t2))
+                  (cdr tags))))
+
     ; with an 8-byte-aligned pointer value, verify all the ptr-masks work
     (let ([addr #xfffffff8])
       (do ([tags tags (cdr tags)]
            [masks masks (cdr masks)])
-        ((null? tags) (void))
+        [(null? tags) (void)]
         (when (eq? (car masks) 'ptr-mask)
           (let* ([mask (lookup-constant (car masks))]
                  [tag (lookup-constant (car tags))]

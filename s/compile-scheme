@@ -1,0 +1,69 @@
+#!/usr/bin/env racket
+#lang racket/base
+
+(require racket/cmdline)
+(require racket/bool)
+(require racket/trace)
+(require "config.ss")
+(require "compile-shared.ss")
+(require "compiler.ss")
+
+;(printf "Given arguments: ~s\n"
+;        (current-command-line-arguments))
+;(printf "This file is ~a~n" (find-system-path 'run-file))
+
+(define verbose? (make-parameter #f))
+(define main-output (make-parameter #f))
+(define compile-only? (make-parameter #f))
+(define link? (make-parameter #t))
+  
+(define input-filename
+  (command-line
+    #:once-each
+    [("-o") filename "Filename for primary output" (main-output filename)]
+    #:once-any
+    [("-S") "Generate assembly, then stop" (compile-only? #t)]
+    [("-c") "Compile, but don't link" (link? #f)]
+    #:args (filename)
+    filename))
+
+(define (output-filename input-filename)
+  (if (false? (main-output))
+    (cond
+      [(compile-only?) (regexp-replace #rx"\\.[^.]+$" input-filename ".s")]
+      [(not (link?)) (regexp-replace #rx"\\.[^.]+$" input-filename ".o")]
+      [else "a.out"])
+    (main-output)))
+
+(define (fork-as output-filename)
+  (let-values ([(sp out in err)
+                (subprocess (current-output-port) #f (current-error-port)
+                            (find-executable-path assembler-path)
+                            "-g" "-o" output-filename)])
+    (if (eq? 'running (subprocess-status sp))
+      (values sp in)
+      (err assembler-path (format "Exited ~a" (subprocess-status sp))))))
+
+(when (link?)
+  (error 'link "unimplemented"))
+
+(parameterize ([scramble-link-register? #f])
+  (let* ([inp (open-input-file input-filename)]
+         [prog (read inp)])
+    (cond
+      [(compile-only?)
+       (let ([out (open-output-file (output-filename input-filename))])
+           (parameterize ([compile-port out])
+             (compile-program prog))
+           (flush-output out)
+           (close-output-port out))]
+      [else
+        (let-values ([(sp in) (fork-as (output-filename input-filename))])
+          (parameterize ([compile-port in])
+            (compile-program prog))
+          (flush-output in)
+          (close-output-port in)
+          (subprocess-wait sp)
+          (let ([st (subprocess-status sp)])
+            (unless (zero? st)
+              (error 'as "exited ~a" st))))])))

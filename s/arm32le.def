@@ -642,6 +642,7 @@
 
 (define (emit-bss dlabels)
   (let ([names dlabels])
+    ; TODO: should these be locals?
     (for-each (lambda (name) (emit ".global ~a" name))
               names)
     (emit ".bss")

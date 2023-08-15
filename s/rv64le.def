@@ -508,6 +508,7 @@
 
 (define (emit-bss dlabels)
   (let ([names dlabels])
+    ; TODO: should these be locals?
     (for-each (lambda (name) (emit ".globl ~a" name))
               names)
     (emit ".bss")

@@ -21,9 +21,11 @@
 
 #define NULL_VALUE 0b00111111
 
-#define VECTOR_TAG 0b010
-#define STRING_TAG 0b011
-#define PAIR_TAG 0b001
+#define PAIR_TAG        0b001
+#define VECTOR_TAG      0b010
+#define STRING_TAG      0b011
+#define SYMBOL_TAG      0b100
+#define CLOSURE_TAG     0b110
 #define PTR_MASK 0b111
 
 #ifndef PTR_T
@@ -99,6 +101,12 @@ void print_pair(ptr_t *addr) {
   printf(")");
 }
 
+void print_symbol(ptr_t *addr) {
+  ptr_t str = addr[0];
+  printf( "\'");
+  print_string(str);
+}
+
 void print_cdr(ptr_t cdr) {
   if (cdr == NULL_VALUE) {
     return;
@@ -135,6 +143,8 @@ void print_ptr(ptr_t val) {
     print_pair((ptr_t *)(val & ADDRESS_MASK));
   } else if ((val & PTR_MASK) == STRING_TAG) {
     print_string((ptr_t *)(val & ADDRESS_MASK));
+  } else if ((val & PTR_MASK) == SYMBOL_TAG) {
+    print_symbol((ptr_t *)(val & ADDRESS_MASK));
   } else {
     errx(1, "Unknown value 0x%04x\n", val);
   }
