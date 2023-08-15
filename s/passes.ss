@@ -1,7 +1,7 @@
 #lang racket
 
 (provide (all-defined-out))
-(provide make-begin-explicit uncover-settable remove-set! uncover-free parse-and-rename collect-code identify-tail-calls initialize-constants)
+(provide make-begin-explicit uncover-settable remove-set! uncover-free parse-and-rename collect-code identify-tail-calls initialize-constants simplify-conditionals remove-memv)
 
 (require "make-begin-explicit.ss")
 (require "uncover-settable.ss")
@@ -11,6 +11,8 @@
 (require "collect-code.ss")
 (require "identify-tail-calls.ss")
 (require "initialize-constants.ss")
+(require "simplify-conditionals.ss")
+(require "remove-memv.ss")
 
 (define passes (list parse-and-rename make-begin-explicit uncover-settable remove-set! uncover-free collect-code identify-tail-calls))
 

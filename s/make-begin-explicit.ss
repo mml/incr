@@ -3,6 +3,7 @@
 (provide make-begin-explicit)
 
 (require racket/match)
+(require racket/trace)
 (require "terminals.ss")
 
 (define (make-begin-explicit expr) (match expr

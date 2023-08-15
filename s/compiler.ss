@@ -16,7 +16,10 @@
                         (remove-set!
                           (uncover-settable
                             (make-begin-explicit
-                              (parse-and-rename prog))))))))])
+                              (remove-memv
+                                (simplify-conditionals
+                                  (parse-and-rename prog))))))))))
+          ])
     (emit-prologue)
     (emit-Labels labels)
     (emit-epilogue)))
