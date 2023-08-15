@@ -625,21 +625,9 @@
   [`(if ,test ,conseq ,altern) (emit-if test conseq altern si env)]
   [`(closure ,label ,free* ___) (emit-Closure label free* si env)]
   [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]
-  [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]
-  [`(constant-init ,n ,e) (emit-constant-init n e si env)]
-  [`(constant-ref ,n) (emit-constant-ref n si env)]))
+  [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]))
 
-(define (emit-constant-init name expr si env)
-  (emit "/* constant-init ~a */" name)
-  (emit-expr expr si env)
-  (emit "  ldr r1,=~a" name)
-  (emit "  str r0,[r1]"))
-
-(define (emit-constant-ref name si env)
-  (emit "/* constant-ref ~a */" name)
-  (emit "  ldr r1,=~a" name)
-  (emit "  ldr r0,[r1]"))
-
+; Currently unused
 (define (emit-bss dlabels)
   (let ([names dlabels])
     ; TODO: should these be locals?

@@ -31,11 +31,11 @@
               (emit-Def (car x*) (car code*) env)
               (loop (cdr x*) (cdr code*))]))))
 
-(define (emit-Labels expr) (match expr
-  [`(labels ([,x* ,code*] ___) ,dlabels ,body)
-    (let ([env (emit-Def* x* code*)])
-      (emit-scheme-entry body env))
-    (emit-bss dlabels)]))
+(define (emit-Labels expr)
+  (match expr
+    [`(labels ([,x* ,code*] ___) ,body)
+      (let ([env (emit-Def* x* code*)])
+        (emit-scheme-entry body env))]))
 
 (define scramble-link-register?
   (make-parameter #f))

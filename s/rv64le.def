@@ -74,20 +74,7 @@
   [`(closure ,label ,free* ___) (emit-Closure label free* si env)]
   [`(funcall ,f ,e* ___) (emit-Funcall f e* si env)]
   [`(tailcall ,f ,e* ___) (emit-Tailcall f e* si env)]
-  [`(constant-init ,n ,e) (emit-constant-init n e si env)]
-  [`(constant-ref ,n) (emit-constant-ref n si env)]
   ))
-
-(define (emit-constant-init name expr si env)
-  (emit "/* constant-init ~a */" name)
-  (emit-expr expr si env)
-  (emit "  la t0,~a" name)
-  (emit "  sd a0,(t0)"))
-
-(define (emit-constant-ref name si env)
-  (emit "/* constant-ref ~a */" name)
-  (emit "  la a0,~a" name)
-  (emit "  ld a0,(a0)"))
 
 (define (emit-varref x env)
   (let ([loc (lookup x env)])
@@ -506,6 +493,7 @@
 (define (emit-end-function name)
   (emit "  .size ~a, .-~a" name name))
 
+; Currently unused
 (define (emit-bss dlabels)
   (let ([names dlabels])
     ; TODO: should these be locals?

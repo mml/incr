@@ -24,7 +24,6 @@
 
 (define (Expr expr) (match expr
   [`(quote ,c) (values expr (set))]
-  [`(datum ,e* ___) (values expr (set))]
   [(? variable? x) (values expr (set))]
   [`(begin ,expr* __1)
     (let-values ([(expr* settable*) (Expr* expr*)])

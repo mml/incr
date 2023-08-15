@@ -23,7 +23,6 @@
   (lambda (expr)
     (match expr
       [`(quote ,datum) `(quote ,datum)]
-      [`(datum ,id ,datum) expr]
       [(? string? s) s]
       [(or
          `(if ,test ,conseq)
@@ -73,15 +72,13 @@
       (lambda (t clause*)
         (if (null? clause*)
           '(primcall void)
-          (begin
-            (printf "Matching against ~a~n" (car clause*))
-            (match (car clause*)
-              [`((,datum* __1) ,expr)
-                `(if
-                   (primcall memv ,t (datum ,(unique-const) ,datum*))
-                   ,(Expr expr)
-                   ,(Clause* t (cdr clause*)))]
-              [`(else ,expr) (Expr expr)])))))
+          (match (car clause*)
+            [`((,datum* __1) ,expr)
+              `(if
+                 (primcall memv ,t ',datum*)
+                 ,(Expr expr)
+                 ,(Clause* t (cdr clause*)))]
+            [`(else ,expr) (Expr expr)]))))
 
     (lambda (expr clause*)
       (let ([t (tmp)])
@@ -118,25 +115,25 @@
   (check-equal? (Expr '(unless '1 '2)) '(if '1 (primcall void) '2))
 
   (check-equal? (Expr '(cond [else '9])) ''9)
-  (check-equal? (Expr '(cond [(< x y)]
-                             [(> x y) z]
-                             [(list? x) => (lambda (x) (not x))]
+  (check-equal? (Expr '(cond [(primcall < x y)]
+                             [(primcall > x y) z]
+                             [(primcall list? x) => (lambda (x) (primcall not x))]
                              [else 'none-of-the-above]))
-                '(let ([tmp1 (< x y)])
+                '(let ([tmp1 (primcall < x y)])
                    (if tmp1 tmp1
-                     (if (> x y) z
-                       (let ([tmp2 (list? x)])
-                         (if tmp2 (funcall (lambda (x) (not x)) tmp2)
+                     (if (primcall > x y) z
+                       (let ([tmp2 (primcall list? x)])
+                         (if tmp2 (funcall (lambda (x) (primcall not x)) tmp2)
                            'none-of-the-above))))))
 
-  (check-equal? (Expr '(case (+ x y)
+  (check-equal? (Expr '(case (primcall + x y)
                          [(1 3 5 7 9) 'odd]
                          [(0 2 4 6 8) 'even]
                          [else 'out-of-range]))
-                '(let ([tmp3 (+ x y)])
-                   (if (memv tmp3 '(1 3 5 7 9))
+                '(let ([tmp3 (primcall + x y)])
+                   (if (primcall memv tmp3 '(1 3 5 7 9))
                      'odd
-                     (if (memv tmp3 '(0 2 4 6 8))
+                     (if (primcall memv tmp3 '(0 2 4 6 8))
                        'even
                        'out-of-range))))
   (check-equal? (Cond '([else (begin '1 '2 '3)]))

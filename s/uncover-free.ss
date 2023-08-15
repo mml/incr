@@ -23,7 +23,6 @@
 
 (define (Expr expr) (match expr
   [`(quote ,c) (values expr (set))]
-  [`(datum ,e* ___) (values expr (set))]
   [(? variable? x) (values x (set x))]
   [`(begin ,expr* __1)
     (let-values ([(expr* free*) (Expr* expr*)])

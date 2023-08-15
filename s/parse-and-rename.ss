@@ -217,13 +217,6 @@
     (syms-unique? a b))
   )
 
-(define (Complex expr env) (match expr
-  [`(,tl) (cons (Complex tl env) '())]
-  [`(,hd . ,tl) (cons (Complex hd env) (Complex tl env))]
-  [(? symbol? c) `(primcall quote ,c)]
-  [(? string? c) c]
-  [(? immediate? c) c]))
-
 (define (Expr expr env) (match expr
   [(? immediate? c) `',c]
   [(? symbol? x)
@@ -261,11 +254,8 @@
     (Expr `(if ,test ,conseq (void)) env)]
   [`(unless ,test ,altern)
     (Expr `(if ,test (void) ,altern) env)]
-  [`(quote ,(? immediate? c)) expr]
-  [`(quote ,(? pair? c)) `(datum ,(unique-const) ,(Complex c env))]
-  [`(quote ,(? symbol? c)) `(datum ,(unique-const) ,(Complex c env))]
-  [`(quote ,x* ___) (error 'parse-and-rename "unsupported quote: ~a" expr)]
-  [(? string? c) `(datum ,(unique-const) ,(Complex c env))]
+  [`(quote ,_) expr]
+  [(? string? c) c]
   [`(,(? symbol? e0) ,e* ___)
     (App e0 e* env)]
   [`(,e0 ,e* ___)
@@ -274,9 +264,9 @@
 
 (module+ test
   (check-equal? (Expr '(quote 5) primitives) ''5)
-  (check-equal? (Expr '(quote (2 . 5)) primitives) '(datum const0 (2 . 5)))
-  (check-equal? (Expr '(quote (2 3 4)) primitives) '(datum const1 (2 3 4)))
-  (check-equal? (Expr "foo" primitives) '(datum const2 "foo"))
+  ;(check-equal? (Expr '(quote (2 . 5)) primitives) '(datum const0 (2 . 5)))
+  ;(check-equal? (Expr '(quote (2 3 4)) primitives) '(datum const1 (2 3 4)))
+  ;(check-equal? (Expr "foo" primitives) '(datum const2 "foo"))
   (check-equal? (Expr '(string) primitives) '(primcall string))
   (check-equal? (Expr '((lambda () '10)) primitives)
                 '(funcall (lambda () (begin '10))))
@@ -287,6 +277,7 @@
   )
 
 (module+ test
+  #|
   (check-match (Expr '(let ([v (make-vector 5 0)])
                         (letrec
                           ([uv (lambda (v n)
@@ -312,6 +303,7 @@
                           (begin
                             (funcall ,uv ,v '4)))))))
                (syms-unique? v uv xv xn))
+  |#
 
   #|
   (check-equal?

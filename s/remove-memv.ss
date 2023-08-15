@@ -9,13 +9,12 @@
 (require "generators.ss")
 (require "terminals.ss")
 
-(trace-define (remove-memv expr) (Expr expr))
+(define (remove-memv expr) (Expr expr))
 
 (define Expr
   (lambda (expr)
     (match expr
       [`(quote ,datum) `(quote ,datum)]
-      [`(datum ,id ,datum) expr]
       [(? string? s) s]
       [`(if ,test ,conseq ,altern) `(if ,(Expr test) ,(Expr conseq) ,(Expr altern))]
       [(? symbol? x) x]

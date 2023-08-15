@@ -11,11 +11,10 @@
   (Labels prog))
 
 (define (Labels prog) (match prog
-  [`(labels ([,x* ,code*] ___) ,dlabels ,body)
-    `(labels ,(map list x* (map Code code*)) ,dlabels ,(Expr body #f))]))
+  [`(labels ([,x* ,code*] ___) ,body)
+    `(labels ,(map list x* (map Code code*)) ,(Expr body #f))]))
 
 (define (Code code) (match code
-  [`(datum ,@d*) code]
   [`(code (,x* ___) (,y* ___) ,body)
     `(code (,@x*) (,@y*) ,(Expr body #t))]))
 

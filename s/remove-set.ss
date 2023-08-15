@@ -32,7 +32,6 @@
 
 (define (Expr expr env) (match expr
   [`(quote ,c) expr]
-  [`(datum ,e* ___) expr]
   [(? variable? x)
    (cond
      [(assq x env) =>

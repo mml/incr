@@ -25,5 +25,4 @@
     `(funcall ,(make-begin-explicit e0) ,@(map make-begin-explicit e*))]
   [`(primcall ,pr ,e* ___)
     `(primcall ,pr ,@(map make-begin-explicit e*))]
-  [`(datum ,e* ___) expr]
   ))
