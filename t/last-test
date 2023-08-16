@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+# Helper script extracts only the lines giving context
+
+require 5;
+
+use warnings;
+use strict;
+#use Color::ANSI::Util qw( );
+
+sub coco($$;@) {
+  my($f, $b, @rest) = @_;
+  print "\e[38;5;${f}m" if $f >= 0;
+  print "\e[48;5;${b}m" if $b >= 0;
+  if ($#rest == -1) {
+    print;
+  } else {
+    printf @rest;
+  }
+  print "\e[m"
+}
+
+my $cases;
+my $test;
+my @lines;
+
+while (<STDIN>) {
+  if (/^Cases /) { $cases = $_; next; }
+  if (/^Test: /) { $test = $_; @lines = (); next; }
+  push @lines, $_;
+}
+
+my $bland = 145;
+my $strong_pink = 199;
+my $carmine = 124;
+my $orangered = 202;
+my $azul = 69;
+my $off_white = 230;
+coco $off_white, $strong_pink, $cases;
+#print $cases;
+coco $off_white, $carmine, $test;
+foreach my $line (@lines) {
+  if ($line =~ /^>/) {
+    coco $off_white, $orangered, $line;
+  } elsif ($line =~ /^</) {
+    coco $off_white, $azul, $line;
+  } elsif ($line =~ /elapsed for/) {
+    coco $bland, -1, $line;
+  } else {
+    print $line;
+  }
+}

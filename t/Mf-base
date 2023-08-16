@@ -7,8 +7,8 @@ test: $(SRCS) $(tests)
 
 $(tests): % : %.ss drivero | output run-%/out
 	racket -e '(require "../s/test-driver.ss") (require "$@.ss") (parameterize ([output-dir "run-$@/out"] [precompiled-driver-object "../c/driver.o"]) (runtests))' \
-		> output/$@.out \
-		|| false #|| (cat output/$@.out; false)
+		> output/$@.out 2> output/$@.err\
+		|| ((cat output/$@.err; ../../t//last-test < output/$@.out) | less -RF; false) #|| (cat output/$@.out; false)
 
 drivero:
 	$(MAKE) -C ../c driver.o
