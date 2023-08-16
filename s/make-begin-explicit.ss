@@ -8,6 +8,7 @@
 
 (define (make-begin-explicit expr) (match expr
   [`(quote ,c) expr]
+  [(? string? s) s]
   [(? variable? x) x]
   [`(begin ,expr* __1)
     `(begin ,@(map make-begin-explicit expr*))]

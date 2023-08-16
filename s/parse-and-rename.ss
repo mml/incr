@@ -8,6 +8,16 @@
 (require "terminals.ss")
 
 (define (initial-env) primitives)
+(define (extend-env env k v)
+  (cons (cons k v) env))
+
+(define (extend-env* env k* v*)
+  (let loop ([k* k*] [v* v*] [env env])
+    (if (null? k*)
+      env
+      (loop (cdr k*)
+            (cdr v*)
+            (cons (cons (car k*) (car v*)) env)))))
 
 (define (parse-and-rename expr)
   (Expr expr (initial-env)))
@@ -117,7 +127,7 @@
   (check-equal? (Expr '(+ 1 1) primitives)
                 '(primcall + '1 '1))
   (check-equal? (Expr '(let () (+ 1 1)) primitives)
-                '(let () (begin (primcall + '1 '1))))
+                '(let () (primcall + '1 '1)))
 
   (check-equal? (Expr '(cond [else '#t]) primitives)
                 '(cond [else '#t]))
@@ -129,7 +139,7 @@
                         (begin '1 '2 '3)]))
 
   (check-match (Expr '(cond [(null? '()) => (lambda (l) (cons l l))]) primitives)
-               `(cond [(primcall null? '()) => (lambda (,l) (begin (primcall cons ,l ,l)))]))
+               `(cond [(primcall null? '()) => (lambda (,l) (primcall cons ,l ,l))]))
 
   #|
   (check-equal? (Cond '((even? '1) (odd? '1)) primitives)
@@ -149,118 +159,101 @@
 
 (define (Letrec* x* e* body* env)
   (let* ([ux* (map unique-variable x*)]
-         [xbindings (map (lambda (x) (list x ''#f)) ux*)]
-         [set-expr* (map (lambda (x e)
-                           `(set! ,x ,e))
-                         x* e*)]
-         [env (append (map cons x* ux*) env)])
-    `(let ,xbindings
-       (begin
-         ,@(Expr* set-expr* env)
-         ,(lambda-body body* env)))))
+         [env (extend-env* env x* ux*)]
+         [e* (Expr* e* env)])
+    `(letrec* ,(map list ux* e*)
+       ,@(Expr* body* env))))
 
 (define (Letrec x* e* body* env)
   (let* ([ux* (map unique-variable x*)]
-         [xbindings (map (lambda (x) (list x ''#f)) ux*)]
-         [t* (map (lambda (x) (tmp)) ux*)]
-         [tbindings (map (lambda (t e) (list t e)) t* e*)]
-         [set-expr* (map (lambda (x t)
-                           `(set! ,x ,t))
-                         x* t*)]
-         [env (append (map cons t* t*) (map cons x* ux*) env)])
-    `(let ,xbindings
-       (let ,(map list t* (Expr* e* env))
-         (begin
-           ,@(Expr* set-expr* env)
-           ,(lambda-body body* env))))))
+         [env (extend-env* env x* ux*)]
+         [e* (Expr* e* env)])
+    `(letrec ,(map list ux* e*)
+       ,@(Expr* body* env))))
 
 (module+ test
   (check-match
     (Letrec '(foo bar) '(9 (+ 1 baz)) '((+ foo bar))
             (cons '(baz . baz.1000) primitives))
-    `(let ([,foo '#f] [,bar '#f])
-       (let ([,t1 '9] [,t2 (primcall + '1 baz.1000)])
-         (begin
-           (primcall set! ,foo ,t1)
-           (primcall set! ,bar ,t2)
-           (begin (primcall + ,foo ,bar)))))
-    (syms-unique? foo bar t1 t2))
+    `(letrec ([,foo '9] [,bar (primcall + '1 baz.1000)])
+       (primcall + ,foo ,bar))
+    (syms-unique? foo bar))
 
   (check-match
     (Letrec '(a b) '(10 (+ a a)) '((+ a b)) primitives)
-    `(let ([,a '#f] [,b '#f])
-       (let ([,t1 '10] [,t2 (primcall + ,a ,a)])
-         (begin
-           (primcall set! ,a ,t1)
-           (primcall set! ,b ,t2)
-           (begin (primcall + ,a ,b)))))
-    (syms-unique? a b t1 t2)))
+    `(letrec ([,a '10] [,b (primcall + ,a ,a)])
+       (primcall + ,a ,b))
+    (syms-unique? a b)))
 
-(define (Let* binding* body* env) (match binding*
-  ['() `(let () ,(lambda-body body* env))]
-  [`([,x ,e]) (Expr `(let ([,x ,e]) ,@body*) env)]
-  [`([,x ,e] ,binding* __1)
-    (Expr `(let ([,x ,e])
-             (let* ,binding* ,@body*)) env)]))
+; TODO: this should only be renaming variables, not rewriting let*
+(define (Let* binding* body* env)
+  (match binding*
+    ['() `(let () ,@(Expr* body* env))]
+    [`([,x ,e])
+      (let ([ux (unique-variable x)])
+        `(let ([,ux ,(Expr e env)])
+           ,@(Expr* body* (extend-env env x ux))))]
+    [`([,x ,e] ,binding* __1)
+      (let ([ux (unique-variable x)])
+        `(let ([,ux ,(Expr e env)])
+           ,(Let* binding* body* (extend-env env x ux))))]))
 
 (module+ test
   (check-equal?
     (Let* '() '((+ 1 1)) primitives)
-    '(let () (begin (primcall + '1 '1))))
+    '(let () (primcall + '1 '1)))
 
   (check-match
     (Let* '([a 10] [b (+ a a)]) '((+ a b)) primitives)
     `(let ([,a '10])
-       (begin
-         (let ([,b (primcall + ,a ,a)])
-           (begin (primcall + ,a ,b)))))
+       (let ([,b (primcall + ,a ,a)])
+         (primcall + ,a ,b)))
     (syms-unique? a b))
   )
 
-(define (Expr expr env) (match expr
-  [(? immediate? c) `',c]
-  [(? symbol? x)
-   (cond [(assq x env) => cdr]
-         [else (error 'parse-and-rename "undefined variable ~a" x)])]
-  [`(cond ,clause* __1)
-    (Cond clause* env)]
-  [`(case ,expr ,clause* __1)
-    (Case expr clause* env)]
-  [`(begin ,expr* __1)
-    `(begin ,@(Expr* expr* env))]
-  [`(list ,expr* ___)
-    (List expr* env)]
-  [`(letrec ([,x* ,e*] ___) ,body* __1)
-    (Letrec x* e* body* env)]
-  [`(letrec* ([,x* ,e*] ___) ,body* __1)
-    (Letrec* x* e* body* env)]
-  [`(let* ,binding* ,body* __1)
-    (Let* binding* body* env)]
-  [`(let ([,x* ,e*] ___) ,body* __1)
-    (let* ([ux* (map unique-variable x*)]
-           [e* (Expr* e* env)]
-           [bindings (map list ux* e*)]
-           [env (append (map cons x* ux*) env)])
-      `(let ,bindings ,(lambda-body body* env)))]
-  [`(lambda (,x* ___) ,body* __1)
-    (let* ([ux* (map unique-variable x*)]
-           [env (append (map cons x* ux*) env)])
-      `(lambda ,ux* ,(lambda-body body* env)))]
-  [`(if ,test ,conseq)
-    `(if ,(Expr test env) ,(Expr conseq env))]
-  [`(if ,test ,conseq ,altern)
-    `(if ,(Expr test env) ,(Expr conseq env) ,(Expr altern env))]
-  [`(when ,test ,conseq)
-    (Expr `(if ,test ,conseq (void)) env)]
-  [`(unless ,test ,altern)
-    (Expr `(if ,test (void) ,altern) env)]
-  [`(quote ,_) expr]
-  [(? string? c) c]
-  [`(,(? symbol? e0) ,e* ___)
-    (App e0 e* env)]
-  [`(,e0 ,e* ___)
-    `(funcall ,(Expr e0 env) ,@(Expr* e* env))]
-  ))
+(define Expr
+  (lambda (expr env)
+    (match expr
+      [(? immediate? c) `',c]
+      [(? symbol? x)
+       (cond [(assq x env) => cdr]
+             [else (error 'parse-and-rename "undefined variable ~a" x)])]
+      [`(cond ,clause* __1)
+        (Cond clause* env)]
+      [`(case ,expr ,clause* __1)
+        (Case expr clause* env)]
+      [`(begin ,expr* __1)
+        `(begin ,@(Expr* expr* env))]
+      [`(list ,expr* ___)
+        (List expr* env)]
+      [`(letrec ([,x* ,e*] ___) ,body* __1)
+        (Letrec x* e* body* env)]
+      [`(letrec* ([,x* ,e*] ___) ,body* __1)
+        (Letrec* x* e* body* env)]
+      [`(let* ,binding* ,body* __1)
+        (Let* binding* body* env)]
+      [`(let ([,(? symbol? x*) ,e*] ___) ,body* __1)
+        (let ([ux* (map unique-variable x*)])
+          `(let ,(map list ux* (Expr* e* env))
+             ,@(Expr* body* (extend-env* env x* ux*))))]
+      [`(lambda (,x* ___) ,body* __1)
+        (let ([ux* (map unique-variable x*)])
+          `(lambda ,ux* ,@(Expr* body* (extend-env* env x* ux*))))]
+      [`(if ,test ,conseq)
+        `(if ,(Expr test env) ,(Expr conseq env))]
+      [`(if ,test ,conseq ,altern)
+        `(if ,(Expr test env) ,(Expr conseq env) ,(Expr altern env))]
+      [`(when ,test ,conseq)
+        `(when ,(Expr test env) ,(Expr conseq env))]
+      [`(unless ,test ,altern)
+        `(unless ,(Expr test env) ,(Expr altern env))]
+      [`(quote ,_) expr]
+      [(? string? c) c]
+      [`(,(? symbol? e0) ,e* ___)
+        (App e0 e* env)]
+      [`(,e0 ,e* ___)
+        `(funcall ,(Expr e0 env) ,@(Expr* e* env))]
+      )))
 
 (module+ test
   (check-equal? (Expr '(quote 5) primitives) ''5)
@@ -269,7 +262,7 @@
   ;(check-equal? (Expr "foo" primitives) '(datum const2 "foo"))
   (check-equal? (Expr '(string) primitives) '(primcall string))
   (check-equal? (Expr '((lambda () '10)) primitives)
-                '(funcall (lambda () (begin '10))))
+                '(funcall (lambda () '10)))
   ;(check-equal? (Expr '(string #\a) primitives) '(primcall string #\a))
   ;(check-equal? (Expr '(quote foo) primitives) '(datum const2 foo))
   ;(check-equal? (Expr '(quote (a b c)) primitives) '(datum const3 (a b c)))

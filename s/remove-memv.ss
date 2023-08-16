@@ -19,12 +19,12 @@
       [`(if ,test ,conseq ,altern) `(if ,(Expr test) ,(Expr conseq) ,(Expr altern))]
       [(? symbol? x) x]
       [`(begin ,expr* __1) `(begin ,@(map Expr expr*))]
-      [`(let ([,x* ,e*] ___) ,body)
+      [`(let ([,x* ,e*] ___) ,body* __1)
         (let ([e* (map Expr e*)]
-              [body (Expr body)])
-          `(let ,(map list x* e*) ,body))]
-      [`(lambda (,x* ___) ,body)
-        `(lambda (,@x*) ,(Expr body))]
+              [body* (map Expr body*)])
+          `(let ,(map list x* e*) ,@body*))]
+      [`(lambda (,x* ___) ,body* __1)
+        `(lambda (,@x*) ,@(map Expr body*))]
       [`(primcall memv ,needle ,haystack)
         (Memv needle haystack)]
       [`(primcall ,p ,e* ___)

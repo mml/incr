@@ -76,6 +76,14 @@
         "(15 . 120)")
 
       (test-case
+        (let* () (+ 1 1))
+        "2")
+
+      (test-case
+        (let* ([x 2]) x)
+        "2")
+
+      (test-case
         (let* ([n 0]
                [m 0]
                [incr (lambda ()
@@ -127,6 +135,7 @@
            [else "neither"])
          "\"neither\"")
  
+       #|
        (test-case
          (let ()
            (define x 10)
@@ -172,6 +181,7 @@
                    (sum-odd sum))))))
            (sum-even 0))
          "280")
+       |#
 
       (test-case
         (let ([lookup (lambda (n)

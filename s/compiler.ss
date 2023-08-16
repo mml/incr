@@ -10,15 +10,16 @@
 
 (define (compile-program prog)
   (let ([labels (identify-tail-calls
-                    (collect-code
-                      (uncover-free
-                        (remove-set!
-                          (uncover-settable
+                  (collect-code
+                    (uncover-free
+                      (remove-set!
+                        (uncover-settable
+                          (remove-complex-constants
                             (make-begin-explicit
-                              (remove-complex-constants
-                                (remove-memv
+                              (remove-memv
+                                (simplify-binding-forms
                                   (simplify-conditionals
-                                    (parse-and-rename prog))))))))))
+                                    (parse-and-rename prog)))))))))))
           ])
     (emit-prologue)
     (emit-Labels labels)

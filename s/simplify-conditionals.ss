@@ -35,12 +35,18 @@
       [`(case ,expr ,clause* __1)
         (Case expr clause*)]
       [`(begin ,expr* __1) `(begin ,@(map Expr expr*))]
-      [`(let ([,x* ,e*] ___) ,body)
+      [`(let ([,x* ,e*] ___) ,body* __1)
         (let ([e* (map Expr e*)]
-              [body (Expr body)])
-          `(let ,(map list x* e*) ,body))]
-      [`(lambda (,x* ___) ,body)
-        `(lambda (,@x*) ,(Expr body))]
+              [body* (map Expr body*)])
+          `(let ,(map list x* e*) ,@body*))]
+      [`(letrec ([,x* ,e*] ___) ,body* __1)
+        `(letrec ,(map list x* (map Expr e*)) ,@(map Expr body*))]
+      [`(letrec* ([,x* ,e*] ___) ,body* __1)
+        `(letrec* ,(map list x* (map Expr e*)) ,@(map Expr body*))]
+      [`(let* ([,x* ,e*] ___) ,body* __1)
+        `(let* ,(map list x* (map Expr e*)) ,@(map Expr body*))]
+      [`(lambda (,x* ___) ,body* __1)
+        `(lambda (,@x*) ,@(map Expr body*))]
       [`(primcall and ,e* ___) (And e*)]
       [`(primcall or ,e* ___) (Or e*)]
       [`(primcall ,p ,e* ___)
