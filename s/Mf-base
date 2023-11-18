@@ -45,12 +45,12 @@ $(ZO_FILES) : $(call zo_file,%.ss): %.ss | compiled
 
 ### clean rules
 clean:
-	rm -f $(ZO_FILES) $(WORKDIR)/*
+	rm -f $(ZO_FILES)
 
 realclean:
-	rm -rf compiled $(WORKDIR)
+	rm -rf compiled
 
 
 ### directories
-compiled $(WORKDIR):
+compiled:
 	mkdir -p $@
