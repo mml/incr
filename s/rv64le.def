@@ -156,14 +156,16 @@
      (emit "  ld t3, ~a(sp)" (- si (constant wordsize)) #;(// "pointer to vector"))
      (emit "  ld a1, ~a(sp)" si                #;(// "size"))
      (emit "  sd a1, (t3)"         #;(// "write size"))
-     (let ([loop (unique-label "initialize_vector")] [break (unique-label "break")])
+     (let ([loop (unique-label ".L")] [start (unique-label ".L")])
+       (emit "  j ~a" start)
        (emit-label loop)
-       (emit "  addi a1,a1,-1") ; decrement a1
-       (emit "  blt a1,zero, ~a" break) ; if a1 < 0 goto break
        (emit "  addi t3,t3,~a" (constant wordsize)) ; move along the vector
        (emit "  sd a0, (t3)") ; initialize word
-       (emit "  j ~a" loop)
-       (emit-label break))
+       (emit-label start)
+       (emit "  addi a1,a1,-1") ; decrement a1
+       ; TODO(mml): If we could change this to to branch when a1<>0, this could
+       ; be an RVC instruction
+       (emit "  bge a1,zero, ~a" loop)) ; while a1 >= 0
      (emit "  ld a0, ~a(sp)" (- si (constant wordsize)) #;(// "restore pointer to vector"))
      (emit "  or a0,a0,~a /* tag vector */" (constant vector-tag))]
     [(string)
