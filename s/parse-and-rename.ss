@@ -22,7 +22,7 @@
 (define (parse-and-rename expr)
   (Expr expr (initial-env)))
 
-(module+ test
+(module+ test ; parse-and-rename
   (require rackunit)
   (define (syms-unique? . args)
     (let loop ([syms args])
@@ -39,6 +39,10 @@
 (define (Expr* expr* env)
   (map (lambda (expr) (Expr expr env)) expr*))
 
+(module+ test ;Expr*
+  (check-equal? (Expr* '((+ 1 2)) primitives)
+                '((primcall + '1 '2))))
+
 (define (lambda-body expr* env) (match expr*
   [`((define ,k* ,x*) __1 ,body* ___)
     (Letrec* k* x* body* env)]
@@ -50,15 +54,11 @@
     (Expr (car expr*) env)
     `(begin ,@(Expr* expr* env))))
 
-(module+ test
+(module+ test ; make-begin
   (check-equal? (make-begin '((car '())) primitives)
                 '(primcall car '()))
   (check-equal? (make-begin '((car '()) (cdr '())) primitives)
                 '(begin (primcall car '()) (primcall cdr '()))))
-
-(module+ test
-  (check-equal? (Expr* '((+ 1 2)) primitives)
-                '((primcall + '1 '2))))
 
 (define (App e0 e* env)
   (let ([as (assq e0 env)])
@@ -104,6 +104,32 @@
          `(case ,(Expr expr env) ,@(map (lambda (clause) (Clause clause env))
                                         clause*))]))))
 
+(module+ test ; Case
+  #|
+  (check-equal?
+    (Case '10 '([else 999]) (initial-env))
+    '(let ([tmp8 '10]) (begin '999)))
+  (check-equal?
+    (Case '10
+          '([(1 2 3) 3]
+            [else 999])
+          (initial-env))
+    '(let ([tmp9 '10])
+       (if (let ([tmp10.9 '#f])
+             (let ([tmp11 (lambda (x.10 ls.11)
+                            (begin
+                              (if (primcall null? ls.11)
+                                (begin '#f)
+                                (if (primcall eqv? (primcall car ls.11) x.10)
+                                  (begin ls.11)
+                                  (begin (funcall tmp10.9 x.10 (primcall cdr ls.11)))))))])
+               (primcall set! tmp10.9 tmp11)
+               (begin
+                 (funcall tmp10.9 tmp9 (datum const3 (1 2 3))))))
+         (begin '3)
+         (begin '999))))
+  |#
+  )
 (define Cond
   (let ()
     (define Clause
@@ -123,12 +149,7 @@
          `(cond ,@(map (lambda (clause) (Clause clause env))
                        clause*))]))))
 
-(module+ test
-  (check-equal? (Expr '(+ 1 1) primitives)
-                '(primcall + '1 '1))
-  (check-equal? (Expr '(let () (+ 1 1)) primitives)
-                '(let () (primcall + '1 '1)))
-
+(module+ test ;Cond
   (check-equal? (Expr '(cond [else '#t]) primitives)
                 '(cond [else '#t]))
 
@@ -146,7 +167,8 @@
                 '(cond
                    [(even? '1)]
                    [(odd? '1)))
-                    |#
+
+  |#
 
   #;(check-match (Cond '([(null? '()) => (lambda (x) 10)]) primitives)
                      `(cond
@@ -171,7 +193,7 @@
     `(letrec ,(map list ux* e*)
        ,@(Expr* body* env))))
 
-(module+ test
+(module+ test ;Letrec
   (check-match
     (Letrec '(foo bar) '(9 (+ 1 baz)) '((+ foo bar))
             (cons '(baz . baz.1000) primitives))
@@ -198,7 +220,7 @@
         `(let ([,ux ,(Expr e env)])
            ,(Let* binding* body* (extend-env env x ux))))]))
 
-(module+ test
+(module+ test ; Let*
   (check-equal?
     (Let* '() '((+ 1 1)) primitives)
     '(let () (primcall + '1 '1)))
@@ -255,7 +277,12 @@
         `(funcall ,(Expr e0 env) ,@(Expr* e* env))]
       )))
 
-(module+ test
+(module+ test ; Expr
+  (check-equal? (Expr '(+ 1 1) primitives)
+                '(primcall + '1 '1))
+  (check-equal? (Expr '(let () (+ 1 1)) primitives)
+                '(let () (primcall + '1 '1)))
+
   (check-equal? (Expr '(quote 5) primitives) ''5)
   ;(check-equal? (Expr '(quote (2 . 5)) primitives) '(datum const0 (2 . 5)))
   ;(check-equal? (Expr '(quote (2 3 4)) primitives) '(datum const1 (2 3 4)))
@@ -267,9 +294,6 @@
   ;(check-equal? (Expr '(quote foo) primitives) '(datum const2 foo))
   ;(check-equal? (Expr '(quote (a b c)) primitives) '(datum const3 (a b c)))
   ;(check-equal? (Expr '(quote (if x)) primitives) '(datum const4 (if x)))
-  )
-
-(module+ test
   #|
   (check-match (Expr '(let ([v (make-vector 5 0)])
                         (letrec
@@ -296,31 +320,6 @@
                           (begin
                             (funcall ,uv ,v '4)))))))
                (syms-unique? v uv xv xn))
-  |#
-
-  #|
-  (check-equal?
-    (Case '10 '([else 999]) (initial-env))
-    '(let ([tmp8 '10]) (begin '999)))
-  (check-equal?
-    (Case '10
-          '([(1 2 3) 3]
-            [else 999])
-          (initial-env))
-    '(let ([tmp9 '10])
-       (if (let ([tmp10.9 '#f])
-             (let ([tmp11 (lambda (x.10 ls.11)
-                            (begin
-                              (if (primcall null? ls.11)
-                                (begin '#f)
-                                (if (primcall eqv? (primcall car ls.11) x.10)
-                                  (begin ls.11)
-                                  (begin (funcall tmp10.9 x.10 (primcall cdr ls.11)))))))])
-               (primcall set! tmp10.9 tmp11)
-               (begin
-                 (funcall tmp10.9 tmp9 (datum const3 (1 2 3))))))
-         (begin '3)
-         (begin '999))))
   |#
   )
 
