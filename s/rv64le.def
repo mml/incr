@@ -397,11 +397,11 @@
          (emit "  li t0,~a" (bitwise-not (constant vector-tag)))
          (emit "  and s4,a0,t0")
          (emit-expr (primcall-operand2 expr) si env) ; offset in a0
-         (emit "  srli a1,a0,~a" (constant fixnum-shift)); (// "offset fixnum->int"))
-         (emit "  addi a1,a1,1");               (// "skip over vector size"))
-         (emit "  slli a1,a1,~a" (constant wordsize-shift)); (// "multiply by wordsize"))
+         (emit "  srli a1,a0,~a" (constant fixnum-shift)); // "offset fixnum->int"
+         (emit "  addi a1,a1,1");               // "skip over vector size"
+         (emit "  slli a1,a1,~a" (constant wordsize-shift)); // "multiply by wordsize"
          (emit "  add s4,s4,a1")
-         (emit "  ld a0, (s4)"))];            (// "dereference and return")))]
+         (emit "  ld a0, (s4)"))];            // "dereference and return"
 
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])
     (emit "/* }}} end ~a */" op )))
