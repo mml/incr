@@ -104,7 +104,7 @@ void print_pair(ptr_t *addr) {
 void print_symbol(ptr_t *addr) {
   ptr_t str = addr[0];
   printf( "\'");
-  print_string(str);
+  print_string((ptr_t *)(str & ADDRESS_MASK));
 }
 
 void print_cdr(ptr_t cdr) {
