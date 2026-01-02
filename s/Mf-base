@@ -10,7 +10,7 @@ all: zo
 test: zo
 	$(MAKE) -C ../t test
 
-unit: $(ZO_FILES)
+unit: zo
 	raco test --table --fresh-user --deps -x -j 20 *.ss
 
 debug: $(TARGET)
@@ -37,7 +37,7 @@ ttt:
 	echo $(test_scheme)
 
 ### A nasty mess showing how to do byte compilation.
-zo:
+zo: src
 	raco make -v -j 20 *.ss
 
 $(ZO_FILES) : $(call zo_file,%.ss): %.ss | compiled
