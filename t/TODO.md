@@ -51,3 +51,10 @@
 ### Stress tests (keep commented)
 - `sweep-test.ss` - iterates 2^29 numbers, too slow for regular testing
 - `expansion.ss:206-209` - large vector (10000 elements), adds 1-2s per test run
+
+## Infrastructure Gaps
+
+### Code generator unit tests
+- The `.def` files (arm32le.def, rv64le.def) lack unit tests
+- Only integration testing via t/ directory
+- Consider adding unit tests for individual primcall implementations
