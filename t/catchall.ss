@@ -350,9 +350,9 @@
                    (eq? x (make-bytevector 10 0)))  "#f")
 
       ;; Vectors
-      #;(test-case (eq? '#(a) '#(b))  "#f")  ; needs vector in datum->code
+      (test-case (eq? '#(a) '#(b))  "#f")  ; needs vector in datum->code
       #;(test-case (eq? '#(a) '#(a))  "unspecified")  ; implementation-defined
-      #;(test-case (let ([x '#(a)]) (eq? x x))  "#t")  ; needs vector in datum->code
+      (test-case (let ([x '#(a)]) (eq? x x))  "#t")  ; needs vector in datum->code
       (test-case (let ([x (vector 'a)])
                    (eq? x x))  "#t")
       (test-case (eq? (vector 'a) (vector 'a))  "#f")

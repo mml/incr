@@ -26,15 +26,16 @@
     [(? symbol? sym)
      (let ([c* (string->list (symbol->string sym))])
        `(primcall string->symbol (primcall string ,@(map datum->code c*))))]
-    #|
-    ['#() '(make-vector 0)]
+    ['#() `(primcall make-vector '0 (primcall void))]
     [`#(,x* __1)
-      (let* ([t (tmp)]
-             [n (length x*)]
-             [vs* (map (lambda (i x) `(vector-set! ,t ,i ,x) (iota n) x*))])
-        `(let ([,t (make-vector ,n)])
-           (begin ,@vs*)))]
-    |#
+     (let* ([vec-var (tmp)]
+            [set-cmds (let loop ([i 0] [elems x*])
+                        (if (null? elems)
+                            '()
+                            (cons `(primcall vector-set! ,vec-var ',i ,(datum->code (car elems)))
+                                  (loop (add1 i) (cdr elems)))))])
+       `(let ([,vec-var (primcall make-vector ',(length x*) (primcall void))])
+          (begin ,@set-cmds ,vec-var)))]
     [(? immediate? v) `',v]))
 
 (define (Expr expr)
@@ -109,13 +110,12 @@
                `(let ([,t (primcall string->symbol (primcall string '#\f '#\o '#\o))])
                   ,t))
 
-  #|
   (check-match (remove-complex-constants ''#())
-               `(let ([,t (make-vector 0)])
+               `(let ([,t (primcall make-vector '0 (primcall void))])
                   ,t))
 
   (check-match (remove-complex-constants ''#(1))
-               '())
-  |#
-
+               `(let ([,t (let ([,vec (primcall make-vector '1 (primcall void))])
+                            (begin (primcall vector-set! ,vec '0 '1) ,vec))])
+                  ,t))
   )
