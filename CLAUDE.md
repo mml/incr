@@ -29,31 +29,26 @@ incr/
 
 ## Build Workflow
 
-1. **Initial setup:**
-   ```bash
-   ./configure --machine=arm32le -x    # or rv64le
-   ```
-   Creates architecture workarea with `machine.ss` defining architecture.
+**Initial setup:**
+```bash
+./configure --machine=arm32le -x    # or rv64le
+```
+Creates architecture workarea with `machine.ss` defining architecture.
 
-2. **Build compiler passes:**
-   ```bash
-   cd arm32le/s
-   make src    # Creates symlinks to ../../s/*.ss
-   make unit   # Compiles passes and runs unit tests
-   ```
-
-3. **Build C runtime:**
-   ```bash
-   cd arm32le/c
-   make        # Compiles driver.c to driver.o
-   ```
-
-4. **Run tests:**
-   ```bash
-   cd arm32le/t
-   make test              # Run all tests
-   make test t=file.ss    # Run specific test file
-   ```
+**Build and test:**
+- run all build commands from the project root
+- make -C arm32le/s unit: run unit tests (only need to run on one arch)
+- make -C ${machine}/s test: run integration tests (arm32le or rv64le)
+- after changes which include `s/`, run the unit tests before trying the integration tests
+- you can run the integration tests in parallel.  spawn background
+  subprocesses for arm32le and rv64le, sending their output to separate
+  files.  as soon as either terminates, notify me.
+- arm32le runs faster than rv64le
+- when iterating on a specific test (e.g. catchall.ss), you can run it
+  with make -C arm32le/t catchall
+- if it's been a few hours, run make realclean before running make unit
+  to make sure racket compilation is still good.  and for good measure,
+  do this in both architectures.
 
 **Important:** The Makefile dependency `zo: src` ensures symlinks are created before compiling. Without this, `make` fails on fresh workareas.
 
@@ -297,3 +292,32 @@ To add a new operation as a compiler transformation (following the `list`/`vecto
 - The `zo: src` dependency in `s/Mf-base` is critical - ensures symlinks exist before compilation
 - The `unit: zo` dependency ensures passes are compiled before running unit tests
 - Without these, fresh clones fail with "cannot open input file" errors
+
+## Label Generation and Naming Conventions
+
+When generating assembly code in `.def` files, labels must follow assembler syntax rules:
+
+**Valid characters:** Letters, underscores, periods, and dollar signs
+**Invalid characters:** Hyphens, question marks, other special characters
+**Cannot start with:** Dollar sign ($)
+
+**Examples of valid labels:**
+- `L0`, `L1`, `L2` (default from `unique-label`)
+- `loop`, `break`, `done` (user-provided prefixes)
+- `list_done`, `vector_check`, `alloc.vector` (underscores and periods OK)
+
+**Invalid labels to avoid:**
+- `list?-done` (question marks not allowed)
+- `$entry` (can't start with $)
+- `loop-1` (hyphens not allowed)
+
+**Pattern for generating unique labels:**
+```scheme
+(let ([done (unique-label "list_done")])
+  ; ... code ...
+  (emit "beq a0,a1,~a" done)
+  ; ... more code ...
+  (emit-label done))
+```
+
+Use `unique-label` with descriptive names (underscores, no hyphens) to avoid label collisions when multiple instances of the same operation appear in a program.

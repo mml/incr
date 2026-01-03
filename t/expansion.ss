@@ -135,21 +135,20 @@
            [else "neither"])
          "\"neither\"")
  
-       #|
-       (test-case
+       #;(test-case
          (let ()
            (define x 10)
            (+ x x))
          "20")
  
-       (test-case
+       #;(test-case
          (let ([x 10])
            (define x 20)
            (define y (+ x x))
            y)
          "40")
 
-       (test-case
+       #;(test-case
          (let ()
            (define l '(1 2 3 4 5 6 7 8 9 10))
            (define even?
@@ -181,7 +180,6 @@
                    (sum-odd sum))))))
            (sum-even 0))
          "280")
-       |#
 
       (test-case
         (let ([lookup (lambda (n)

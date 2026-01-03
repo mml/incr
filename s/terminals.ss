@@ -16,8 +16,8 @@
       (symbol? x)
       (string? x)
       (number? x)
-      #;(list? x)
-      #;(vector? x)
+      (list? x)
+      (vector? x)
       #;(bytevector? x)))
 
 (define (variable? x)
@@ -30,7 +30,7 @@
 (define nullary-primitives '(void))
 
 (define unary-primitives
-  '(add1 sub1 integer->char char->integer zero? not null? car cdr cadr cddr caddr vector-length))
+  '(add1 sub1 integer->char char->integer zero? not null? list? vector? car cdr cadr cddr caddr vector-length))
 
 ; TODO: technically set! isn't a primitive (a procedure) because it doesn't
 ; evaluate its first argument.  set! is syntax.  This isn't true of
@@ -43,11 +43,9 @@
 (define ternary-primitives
   '(vector-set!))
 
-#|
-variable-arity-spec = ()        if any number of parameters allowed
-                    | (min)     if [min,Inf) parameters allowed
-                    | (min max) if [min,max] parameters allowed
-|#
+;;; variable-arity-spec = ()        if any number of parameters allowed
+;;;                     | (min)     if [min,Inf) parameters allowed
+;;;                     | (min max) if [min,max] parameters allowed
 (define variable-arity-primitives
   '([string ()]
     [and ()]

@@ -201,7 +201,7 @@
         [(null? x) #f]
         [else
           (case (car x)
-            [(add1 sub1 integer->char char->integer zero? not null? + - = * <
+            [(add1 sub1 integer->char char->integer zero? not null? list? vector? + - = * <
               cons car cdr cadr cddr caddr make-vector vector-ref vector-set! vector-length)
              #t]
             [else #f])])
@@ -500,6 +500,23 @@
     [(null?)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "cmp r0,#~a" (immediate-rep '()))
+     (emit-move32 'eq "r0" (immediate-rep #t))
+     (emit-move32 'ne "r0" (immediate-rep #f))]
+    [(list?)
+     (emit-expr (primcall-operand1 expr) si env)
+     (let ([done (unique-label "list_done")])
+       (emit "cmp r0,#~a" (immediate-rep '()))
+       (emit-move32 'eq "r0" (immediate-rep #t))
+       (emit "beq ~a" done)
+       (emit "and r1,r0,#0b111")
+       (emit "cmp r1,#~a" (constant pair-tag))
+       (emit-move32 'eq "r0" (immediate-rep #t))
+       (emit-move32 'ne "r0" (immediate-rep #f))
+       (emit-label done))]
+    [(vector?)
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "and r1,r0,#0b111")
+     (emit "cmp r1,#~a" (constant vector-tag))
      (emit-move32 'eq "r0" (immediate-rep #t))
      (emit-move32 'ne "r0" (immediate-rep #f))]
     [(integer->char)

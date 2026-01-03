@@ -374,5 +374,21 @@
                               x))])
                    (eq? (f 0) (f 0)))  "#f")
       )
+
+    (test-cases "type predicates"
+      (test-case (list? '()) "#t")
+      (test-case (list? '(1 2 3)) "#t")
+      (test-case (list? (cons 1 '())) "#t")
+      (test-case (list? 5) "#f")
+      (test-case (list? "hi") "#f")
+      (test-case (list? '#(1)) "#f")
+
+      (test-case (vector? '#()) "#t")
+      (test-case (vector? '#(1)) "#t")
+      (test-case (vector? (vector 1 2)) "#t")
+      (test-case (vector? '()) "#f")
+      (test-case (vector? '(1 2)) "#f")
+      (test-case (vector? 5) "#f")
+      )
   )
 )

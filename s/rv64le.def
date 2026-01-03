@@ -258,6 +258,34 @@
          (emit-label L-null-operand)
          (emit "li a0, ~a" (immediate-rep #t))
          (emit-label L-end))]
+      [(list?)
+       (emit-expr (primcall-operand1 expr) si env)
+       (let ([L-is-list (unique-label)]
+             [L-not-list (unique-label)]
+             [L-end (unique-label)])
+         (emit "li a1, ~a" (immediate-rep '()))
+         (emit "beq a0,a1, ~a" L-is-list)
+         (emit "andi a1,a0,0b111")
+         (emit "li a2, ~a" (constant pair-tag))
+         (emit "beq a1,a2, ~a" L-is-list)
+         (emit-label L-not-list)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" L-end)
+         (emit-label L-is-list)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label L-end))]
+      [(vector?)
+       (emit-expr (primcall-operand1 expr) si env)
+       (let ([L-is-vector (unique-label)]
+             [L-end (unique-label)])
+         (emit "andi a1,a0,0b111")
+         (emit "li a2, ~a" (constant vector-tag))
+         (emit "beq a1,a2, ~a" L-is-vector)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" L-end)
+         (emit-label L-is-vector)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label L-end))]
       [(integer->char)
        (emit-expr (primcall-operand1 expr) si env)
        (emit "slli a0,a0,~a" (- (constant char-shift) (constant fixnum-shift)))
