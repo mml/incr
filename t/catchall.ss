@@ -286,11 +286,11 @@
     ;; https://www.scheme.com/tspl4/objects.html#./objects:s10
 
     (test-cases "eq?"
-      ;; Type mismatches - most need string->symbol for quoted symbols
-      #;(test-case (eq? 'a 3)  "#f")
-      #;(test-case (eq? #t 't)  "#f")
-      #;(test-case (eq? "abc" 'abc)  "#f")
-      #;(test-case (eq? "hi" '(hi))  "#f")
+      ;; Type mismatches
+      (test-case (eq? 'a 3)  "#f")
+      (test-case (eq? #t 't)  "#f")
+      (test-case (eq? "abc" 'abc)  "#f")
+      (test-case (eq? "hi" '(hi))  "#f")
       (test-case (eq? #f '())  "#f")
 
       ;; Rationals/floats - not implemented
@@ -317,22 +317,22 @@
       (test-case (eq? #f #f)  "#t")
       (test-case (eq? #t #f)  "#f")
       (test-case (eq? (null? '()) #t)  "#t")
-      #;(test-case (eq? (null? '(a)) #f)  "#t")  ; needs string->symbol
+      (test-case (eq? (null? '(a)) #f)  "#t")
 
-      #;(test-case (eq? (cdr '(a)) '())  "#t")  ; needs string->symbol
+      (test-case (eq? (cdr '(a)) '())  "#t")
 
-      ;; Symbols - all need string->symbol
-      #;(test-case (eq? 'a 'a)  "#t")
-      #;(test-case (eq? 'a 'b)  "#f")
-      #;(test-case (eq? 'a (string->symbol "a"))  "#t")
+      ;; Symbols - no interning, so (eq? 'a 'a) returns #f
+      #;(test-case (eq? 'a 'a)  "#t")  ; needs interning
+      (test-case (eq? 'a 'b)  "#f")
+      #;(test-case (eq? 'a (string->symbol "a"))  "#t")  ; needs interning
 
-      ;; Pairs - all need string->symbol for quoted symbols
-      #;(test-case (eq? '(a) '(b))  "#f")
-      #;(test-case (eq? '(a) '(a))  "unspecified")
-      #;(test-case (let ([x '(a . b)]) (eq? x x))  "#t")
-      #;(test-case (let ([x (cons 'a 'b)])
+      ;; Pairs
+      (test-case (eq? '(a) '(b))  "#f")
+      #;(test-case (eq? '(a) '(a))  "unspecified")  ; implementation-defined
+      (test-case (let ([x '(a . b)]) (eq? x x))  "#t")
+      (test-case (let ([x (cons 'a 'b)])
                    (eq? x x))  "#t")
-      #;(test-case (eq? (cons 'a 'b) (cons 'a 'b))  "#f")
+      (test-case (eq? (cons 'a 'b) (cons 'a 'b))  "#f")
 
       ;; Strings (constants)
       (test-case (eq? "abc" "cba")  "#f")
@@ -349,13 +349,13 @@
       #;(test-case (let ([x (make-bytevector 10 0)])
                    (eq? x (make-bytevector 10 0)))  "#f")
 
-      ;; Vectors - all need string->symbol for quoted symbols
-      #;(test-case (eq? '#(a) '#(b))  "#f")
-      #;(test-case (eq? '#(a) '#(a))  "unspecified")
-      #;(test-case (let ([x '#(a)]) (eq? x x))  "#t")
+      ;; Vectors - need vector constructor and datum->code support
+      #;(test-case (eq? '#(a) '#(b))  "#f")  ; needs vector in datum->code
+      #;(test-case (eq? '#(a) '#(a))  "unspecified")  ; implementation-defined
+      #;(test-case (let ([x '#(a)]) (eq? x x))  "#t")  ; needs vector in datum->code
       #;(test-case (let ([x (vector 'a)])
-                   (eq? x x))  "#t")
-      #;(test-case (eq? (vector 'a) (vector 'a))  "#f")
+                   (eq? x x))  "#t")  ; needs vector constructor
+      #;(test-case (eq? (vector 'a) (vector 'a))  "#f")  ; needs vector constructor
 
       ;; Primitives as values - not implemented
       #;(test-case (eq? car car)  "#t")

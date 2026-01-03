@@ -428,6 +428,11 @@
          (emit "  add r2,r2,#1"))
        (primcall-operands expr))
      (emit "  orr r0,r0,#~a" (constant string-tag))]
+    [(string->symbol)
+     (emit-expr (primcall-operand1 expr) si env)    ; evaluate string argument to r0
+     (emit "  str r0, [~a]" heap-register)           ; store string pointer at offset 0
+     (emit "  add r0,~a,#~a" heap-register (constant symbol-tag))  ; tag pointer with #b100
+     (emit "  add ~a,~a,#8" heap-register heap-register)]  ; advance heap by 8 bytes
     ))
 
 (define (emit-side-effect-primcall op expr si env)
@@ -450,7 +455,7 @@
 (define (emit-primitive-call expr si env)
   (let ([op (primcall-op expr)])
   (case op
-    [(cons make-vector string)
+    [(cons make-vector string string->symbol)
      (emit-allocation-primcall op expr si env)]
     [(vector-set!)
      (emit-side-effect-primcall op expr si env)]
