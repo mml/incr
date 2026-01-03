@@ -9,10 +9,6 @@ This file lists commented-out unit tests in the compiler passes. These tests are
 - **Line 163-166**: `Cond` with two unary clauses - tests cond handling without test expressions
 - **Line 169-171**: `Cond` with arrow syntax - tests cond with `=>` receiver syntax
 
-## simplify-binding-forms.ss
-
-- **Line 76-95**: `Expr` with let + letrec and vector-set! - tests letrec desugaring into let + set! forms
-
 ## uncover-free.ss
 
 - **Line 67-74**: Nested lambda expression with closure over free variables - partial test case in comment

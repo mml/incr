@@ -2,6 +2,7 @@
 
 (provide simplify-binding-forms)
 
+(require rackunit)
 (require racket/match)
 (require racket/trace)
 (require "generators.ss")
@@ -70,3 +71,24 @@
       `(let ,xbinding*
          ,@s!*
          (let () ,@(Expr* body*))))))
+(module+ test ; Expr
+  ; Not sure why failing
+  (check-match (Expr '(let ([v (primcall make-vector '5 '0)])
+                        (letrec
+                          ([uv (lambda (v2 n)
+                                 (if (primcall < n '0)
+                                     v2
+                                     (begin
+                                       (primcall vector-set! v2 n n)
+                                       (funcall uv v2 (primcall sub1 n)))))])
+                          (funcall uv v '4))))
+               `(let ([v (primcall make-vector '5 '0)])
+                  (let ([uv (primcall void)])
+                    (let ([,t (lambda (v2 n)
+                                (if (primcall < n '0)
+                                    v2
+                                    (begin
+                                      (primcall vector-set! v2 n n)
+                                      (funcall uv v2 (primcall sub1 n)))))])
+                      (primcall set! uv ,t)
+                      (let () (funcall uv v '4)))))))
