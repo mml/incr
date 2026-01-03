@@ -1,3 +1,123 @@
+# Project Overview
+
+This is an incremental Scheme-to-native compiler targeting ARM32 and RISC-V 64-bit architectures. The compiler is written in Racket and generates assembly code that links with a small C runtime.
+
+## Directory Structure
+
+```
+incr/
+├── s/                    # Compiler source (Racket/Scheme)
+│   ├── *.ss             # Compiler passes
+│   ├── arm32le.def      # ARM32 code generator
+│   ├── rv64le.def       # RISC-V code generator
+│   └── compile-shared.ss # Shared constants and utilities
+├── c/                    # C runtime
+│   ├── driver.c         # Print functions, memory allocation
+│   ├── Mf-base         # Shared C makefile
+│   └── Mf-arm32le      # ARM32-specific C makefile
+├── t/                    # Test suite
+│   ├── *.ss            # Test files
+│   └── TODO.md         # Test status documentation
+├── arm32le/             # ARM32 workarea (created by ./configure)
+│   ├── s/              # Symlinks to s/ + machine.ss
+│   ├── c/              # Compiled C runtime
+│   └── t/              # Symlinks to t/ + test outputs
+├── rv64le/              # RISC-V workarea (created by ./configure)
+└── configure            # Script to set up workareas
+```
+
+## Build Workflow
+
+1. **Initial setup:**
+   ```bash
+   ./configure --machine=arm32le -x    # or rv64le
+   ```
+   Creates architecture workarea with `machine.ss` defining architecture.
+
+2. **Build compiler passes:**
+   ```bash
+   cd arm32le/s
+   make src    # Creates symlinks to ../../s/*.ss
+   make unit   # Compiles passes and runs unit tests
+   ```
+
+3. **Build C runtime:**
+   ```bash
+   cd arm32le/c
+   make        # Compiles driver.c to driver.o
+   ```
+
+4. **Run tests:**
+   ```bash
+   cd arm32le/t
+   make test              # Run all tests
+   make test t=file.ss    # Run specific test file
+   ```
+
+**Important:** The Makefile dependency `zo: src` ensures symlinks are created before compiling. Without this, `make` fails on fresh workareas.
+
+## Compiler Pass Pipeline
+
+The compiler transforms Scheme code through several passes before code generation:
+
+1. **parse-and-rename** - Parse syntax and rename variables to avoid conflicts
+2. **remove-complex-constants** - Transform quoted data into primcalls:
+   - `'a` → `(string->symbol (string #\a))`
+   - `"hi"` → `(string #\h #\i)`
+   - `'(a . b)` → `(cons (string->symbol ...) (string->symbol ...))`
+3. **simplify-binding-forms** - Convert let/let*/letrec to simpler forms
+4. **simplify-conditionals** - Normalize if/cond expressions
+5. **remove-set** - Transform set! into heap-allocated boxes
+6. **uncover-settable** - Identify which variables need boxes
+7. **uncover-free** - Find free variables for closure conversion
+8. **identify-tail-calls** - Mark tail positions
+9. **collect-code** - Separate top-level functions
+10. **Code generation** - `arm32le.def` or `rv64le.def` emits assembly
+
+**Key insight:** When debugging, remember that the code being compiled is NOT the original source - it's been transformed by earlier passes. A test with `'a` will show `string->symbol` in error messages.
+
+## Data Representation
+
+The runtime uses a tagged pointer scheme to distinguish types:
+
+### Immediate Values (unboxed)
+These fit in a machine word and don't require heap allocation:
+
+| Type | Tag (low bits) | Example | Representation |
+|------|----------------|---------|----------------|
+| Fixnum | `00` | `5` | `0b10100` (value << 2) |
+| Boolean | `0b00101111` / `0b01101111` | `#f` / `#t` | Special bit patterns |
+| Character | `0b00001111` | `#\a` | `0b011000010001111` (char << 8, tag) |
+| Void | `0b00011111` | `(void)` | Fixed value |
+| Null | `0b00111111` | `'()` | Fixed value |
+
+### Heap Objects (boxed)
+Allocated on heap, pointer tagged with low 3 bits:
+
+| Type | Tag | Layout |
+|------|-----|--------|
+| Pair | `#b001` | `[car\|cdr]` (2 words) |
+| Vector | `#b010` | `[size\|elem0\|elem1\|...]` (size+1 words) |
+| String | `#b011` | `[size\|bytes...]` (size in bytes, 8-byte aligned) |
+| Symbol | `#b100` | `[string-ptr]` (1 word, points to string) |
+| Closure | `#b110` | `[code-ptr\|free0\|free1\|...]` |
+
+**Memory alignment:** All heap allocations are 8-byte aligned. The low 3 bits of aligned pointers are always 0, which allows using them for type tags.
+
+**Heap pointer:** Maintained in r8 (ARM32) or s11 (RISC-V), points to next free byte.
+
+## Design Decisions
+
+### No Symbol Interning
+Symbols are NOT interned. Each `(string->symbol "a")` creates a fresh symbol object:
+- `(eq? 'a 'a)` → `#f` (two different symbol objects)
+- `(let ([x 'a]) (eq? x x))` → `#t` (same object)
+
+This is non-standard but simplifies the compiler (no symbol table needed).
+
+### No Code Generator Unit Tests
+The `.def` files lack unit tests - only integration tests exist in `t/`. This is a known gap (documented in `t/TODO.md`).
+
 # Debugging Test Failures
 
 Error messages from test failures typically refer to compiler internals, not the test case that failed. For example, a test like `(eq? 'a 'a)` might fail with:
@@ -82,3 +202,57 @@ For allocation primcalls, add a case to `emit-allocation-primcall`:
 - Run `make unit` in `{arch}/s/` to test compiler passes
 - Run `make test t=file.ss` in `{arch}/t/` to test code generation
 - Test on BOTH arm32le and rv64le
+
+# Common Gotchas and Limitations
+
+## Missing Features
+
+1. **`vector` constructor not implemented** - Only `make-vector` exists:
+   - `(vector 'a 'b)` → Error: "undefined variable vector"
+   - Use: `(let ([v (make-vector 2 #f)]) (vector-set! v 0 'a) (vector-set! v 1 'b) v)`
+
+2. **Quoted vectors not in `datum->code`**:
+   - `'#(a b c)` → Error: "no matching clause for '#(a)'"
+   - The `remove-complex-constants` pass doesn't handle vector literals yet
+
+3. **No `string` constructor from chars**:
+   - `(string #\h #\i)` → Not implemented
+   - The `string` primcall only handles compile-time string literals
+
+4. **No `string-ref`**:
+   - `(string-ref "hi" 0)` → Not implemented
+
+5. **Primitives not first-class**:
+   - `(eq? car car)` → Not implemented
+   - Primitives like `car`, `cdr` cannot be used as values
+
+6. **No rationals, floats, bignums**:
+   - `9/2`, `3.4`, large integers → Not implemented
+
+## Test Result Interpretation
+
+Some tests expect "unspecified" results but the implementation returns concrete values:
+- `(eq? #\a #\a)` → Returns `#t`, spec says "unspecified"
+- `(eq? "abc" "abc")` → Returns `#f`, spec says "unspecified"
+
+These tests are commented out with `; implementation-defined` notes.
+
+## Compiler Pass Transformations
+
+When a test fails, remember these transformations:
+
+| Source Code | After `remove-complex-constants` |
+|-------------|----------------------------------|
+| `'a` | `(string->symbol (string #\a))` |
+| `'foo` | `(string->symbol (string #\f #\o #\o))` |
+| `"hi"` | `(string #\h #\i)` |
+| `'(a . b)` | `(cons (string->symbol ...) (string->symbol ...))` |
+| `'()` | Unchanged (immediate null value) |
+
+If you see an error about a primitive not being implemented, grep for where it's used in the compiler passes - it might be generated by a transformation, not written by the user.
+
+## Makefile Dependencies
+
+- The `zo: src` dependency in `s/Mf-base` is critical - ensures symlinks exist before compilation
+- The `unit: zo` dependency ensures passes are compiled before running unit tests
+- Without these, fresh clones fail with "cannot open input file" errors
