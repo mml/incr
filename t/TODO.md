@@ -1,19 +1,5 @@
 # Commented-Out Tests
 
-## Quick Fixes
-
-### Delete (duplicate)
-- [ ] `catchall.ss:47-50` - Duplicate of equiv.ss:18-21, delete it
-
-### Rewrite
-- [ ] `equiv.ss:10-11` - Rewrite as explicit test-cases:
-  ```scheme
-  (test-case (= -1 -1) "#t")
-  (test-case (= 0 0) "#t")
-  (test-case (= 1 1) "#t")
-  (test-case (= 999 999) "#t")
-  ```
-
 ## Needs Implementation
 
 ### Internal defines (expansion.ss:138-184, 3 tests)
@@ -55,3 +41,4 @@
 
 ### Stress tests (keep commented)
 - `sweep-test.ss` - iterates 2^29 numbers, too slow for regular testing
+- `expansion.ss:206-209` - large vector (10000 elements), adds 1-2s per test run
