@@ -43,11 +43,6 @@
               [y '(8)])
           (cons (car tl) hd))
         "(1 0)")
-
-      #;(test-case (let ([f (lambda ()
-                            (quote (1 . "H")))])
-                   (eq? (f) (f)))
-                 "#t")
       )
 
     (test-cases "assignment"
