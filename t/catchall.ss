@@ -281,83 +281,92 @@
         "720")
 
       )
-    )
 
-    #|
-    These test cases lifted directly from tspl4.
-    https://www.scheme.com/tspl4/objects.html#./objects:s10
+    ;; These test cases lifted directly from tspl4.
+    ;; https://www.scheme.com/tspl4/objects.html#./objects:s10
 
     (test-cases "eq?"
-      (test-case (eq? 'a 3)  "#f")
-      (test-case (eq? #t 't)  "#f")
-      (test-case (eq? "abc" 'abc)  "#f")
-      (test-case (eq? "hi" '(hi))  "#f")
+      ;; Type mismatches - most need string->symbol for quoted symbols
+      #;(test-case (eq? 'a 3)  "#f")
+      #;(test-case (eq? #t 't)  "#f")
+      #;(test-case (eq? "abc" 'abc)  "#f")
+      #;(test-case (eq? "hi" '(hi))  "#f")
       (test-case (eq? #f '())  "#f")
 
-      (test-case (eq? 9/2 7/2)  "#f")
-      (test-case (eq? 3.4 53344)  "#f")
-      (test-case (eq? 3 3.0)  "#f")
-      (test-case (eq? 1/3 #i1/3)  "#f")
+      ;; Rationals/floats - not implemented
+      #;(test-case (eq? 9/2 7/2)  "#f")
+      #;(test-case (eq? 3.4 53344)  "#f")
+      #;(test-case (eq? 3 3.0)  "#f")
+      #;(test-case (eq? 1/3 #i1/3)  "#f")
 
-      (test-case (eq? 9/2 9/2)  "unspecified")
-      (test-case (eq? 3.4 (+ 3.0 .4))  "unspecified")
-      (test-case
+      #;(test-case (eq? 9/2 9/2)  "unspecified")
+      #;(test-case (eq? 3.4 (+ 3.0 .4))  "unspecified")
+      #;(test-case
         (let ([x (* 12345678987654321 2)])
          (eq? x x))
         "unspecified")
 
+      ;; Characters
       (test-case (eq? #\a #\b)  "#f")
-      (test-case (eq? #\a #\a)  "unspecified")
-      (test-case (let ([x (string-ref "hi" 0)])
+      #;(test-case (eq? #\a #\a)  "unspecified")  ; implementation-defined
+      #;(test-case (let ([x (string-ref "hi" 0)])
                    (eq? x x))  "unspecified")
 
+      ;; Booleans
       (test-case (eq? #t #t)  "#t")
       (test-case (eq? #f #f)  "#t")
       (test-case (eq? #t #f)  "#f")
       (test-case (eq? (null? '()) #t)  "#t")
-      (test-case (eq? (null? '(a)) #f)  "#t")
+      #;(test-case (eq? (null? '(a)) #f)  "#t")  ; needs string->symbol
 
-      (test-case (eq? (cdr '(a)) '())  "#t")
+      #;(test-case (eq? (cdr '(a)) '())  "#t")  ; needs string->symbol
 
-      (test-case (eq? 'a 'a)  "#t")
-      (test-case (eq? 'a 'b)  "#f")
-      (test-case (eq? 'a (string->symbol "a"))  "#t")
+      ;; Symbols - all need string->symbol
+      #;(test-case (eq? 'a 'a)  "#t")
+      #;(test-case (eq? 'a 'b)  "#f")
+      #;(test-case (eq? 'a (string->symbol "a"))  "#t")
 
-      (test-case (eq? '(a) '(b))  "#f")
-      (test-case (eq? '(a) '(a))  "unspecified")
-      (test-case (let ([x '(a . b)]) (eq? x x))  "#t")
-      (test-case (let ([x (cons 'a 'b)])
+      ;; Pairs - all need string->symbol for quoted symbols
+      #;(test-case (eq? '(a) '(b))  "#f")
+      #;(test-case (eq? '(a) '(a))  "unspecified")
+      #;(test-case (let ([x '(a . b)]) (eq? x x))  "#t")
+      #;(test-case (let ([x (cons 'a 'b)])
                    (eq? x x))  "#t")
-      (test-case (eq? (cons 'a 'b) (cons 'a 'b))  "#f")
+      #;(test-case (eq? (cons 'a 'b) (cons 'a 'b))  "#f")
 
+      ;; Strings (constants)
       (test-case (eq? "abc" "cba")  "#f")
-      (test-case (eq? "abc" "abc")  "unspecified")
+      #;(test-case (eq? "abc" "abc")  "unspecified")  ; implementation-defined
       (test-case (let ([x "hi"]) (eq? x x))  "#t")
-      (test-case (let ([x (string #\h #\i)]) (eq? x x))  "#t")
-      (test-case (eq? (string #\h #\i)
+      #;(test-case (let ([x (string #\h #\i)]) (eq? x x))  "#t")
+      #;(test-case (eq? (string #\h #\i)
                       (string #\h #\i))  "#f")
 
       ;(test-case (eq? '#vu8(1) '#vu8(1))  "unspecified")
       ;(test-case (eq? '#vu8(1) '#vu8(2))  "#f")
-      (test-case (let ([x (make-bytevector 10 0)])
+      #;(test-case (let ([x (make-bytevector 10 0)])
                    (eq? x x))  "#t")
-      (test-case (let ([x (make-bytevector 10 0)])
+      #;(test-case (let ([x (make-bytevector 10 0)])
                    (eq? x (make-bytevector 10 0)))  "#f")
 
-      (test-case (eq? '#(a) '#(b))  "#f")
-      (test-case (eq? '#(a) '#(a))  "unspecified")
-      (test-case (let ([x '#(a)]) (eq? x x))  "#t")
-      (test-case (let ([x (vector 'a)])
+      ;; Vectors - all need string->symbol for quoted symbols
+      #;(test-case (eq? '#(a) '#(b))  "#f")
+      #;(test-case (eq? '#(a) '#(a))  "unspecified")
+      #;(test-case (let ([x '#(a)]) (eq? x x))  "#t")
+      #;(test-case (let ([x (vector 'a)])
                    (eq? x x))  "#t")
-      (test-case (eq? (vector 'a) (vector 'a))  "#f")
+      #;(test-case (eq? (vector 'a) (vector 'a))  "#f")
 
-      (test-case (eq? car car)  "#t")
-      (test-case (eq? car cdr)  "#f")
+      ;; Primitives as values - not implemented
+      #;(test-case (eq? car car)  "#t")
+      #;(test-case (eq? car cdr)  "#f")
+
+      ;; Closures
       (test-case (let ([f (lambda (x) x)])
                    (eq? f f))  "#t")
-      (test-case (let ([f (lambda () (lambda (x) x))])
-                   (eq? (f) (f)))  "unspecified")
-      (test-case (eq? (lambda (x) x) (lambda (y) y))  "unspecified")
+      #;(test-case (let ([f (lambda () (lambda (x) x))])
+                   (eq? (f) (f)))  "unspecified")  ; implementation-defined
+      #;(test-case (eq? (lambda (x) x) (lambda (y) y))  "unspecified")  ; implementation-defined
 
       (test-case (let ([f (lambda (x)
                             (lambda ()
@@ -365,5 +374,5 @@
                               x))])
                    (eq? (f 0) (f 0)))  "#f")
       )
-    |#
+  )
 )

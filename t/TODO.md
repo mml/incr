@@ -6,17 +6,26 @@
 - [ ] Support `define` inside `let`/`let*`/`letrec` bodies
 - Tests: basic define, shadowing, mutually recursive defines
 
-### eq? tests from tspl4 (catchall.ss:291-373)
+### eq? tests from tspl4 (catchall.ss:288-376)
 
-**Ready to enable (~25 tests):**
-- eq? on booleans, symbols, chars, null, pairs, vectors, strings, closures
-- These use only currently-implemented features
+**Enabled (8 tests):**
+- Type mismatches: `(eq? #f '())`
+- Characters: `(eq? #\a #\b)`
+- Booleans: `(eq? #t #t)`, `(eq? #f #f)`, `(eq? #t #f)`, `(eq? (null? '()) #t)`
+- Strings: `(eq? "abc" "cba")`, `(let ([x "hi"]) (eq? x x))`
+- Closures: identity and inequality tests
+
+**Implementation-defined (commented):**
+- Tests that return specific values but spec says "unspecified"
+- Examples: `(eq? #\a #\a)`, `(eq? "abc" "abc")`, `(eq? (lambda (x) x) (lambda (y) y))`
+
+**Needs string->symbol (~25 tests):**
+- Most eq? tests use quoted symbols like `'a`, which the compiler transforms to `(string->symbol (string #\a))`
+- Includes: symbol tests, pair tests with quoted data, vector tests with quoted data
+- Also: `(eq? 'a (string->symbol "a"))` explicitly uses string->symbol
 
 **Needs string-ref:**
 - `(let ([x (string-ref "hi" 0)]) (eq? x x))`
-
-**Needs string->symbol:**
-- `(eq? 'a (string->symbol "a"))`
 
 **Needs string constructor:**
 - `(let ([x (string #\h #\i)]) (eq? x x))`
