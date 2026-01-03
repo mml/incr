@@ -277,6 +277,9 @@
                 '(let () (primcall + '1 '1)))
 
   (check-equal? (Expr '(quote 5) primitives) ''5)
+  ;; TODO: The following tests require constant pooling implementation.
+  ;; Currently, the compiler does not pool complex constants (pairs, lists, strings, symbols).
+  ;; Each quote of a complex constant produces a new runtime construction.
   ;(check-equal? (Expr '(quote (2 . 5)) primitives) '(datum const0 (2 . 5)))
   ;(check-equal? (Expr '(quote (2 3 4)) primitives) '(datum const1 (2 3 4)))
   ;(check-equal? (Expr "foo" primitives) '(datum const2 "foo"))
