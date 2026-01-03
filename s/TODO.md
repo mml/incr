@@ -7,7 +7,6 @@ This file lists commented-out unit tests in the compiler passes. These tests are
 - **Line 108-110**: `Case` with else clause - expects desugaring to let + begin + quoted value
 - **Line 111-129**: `Case` with numeric patterns and else - expects complex desugaring with lambda and set!
 - **Line 163-166**: `Cond` with two unary clauses - tests cond handling without test expressions
-- **Line 169-171**: `Cond` with arrow syntax - tests cond with `=>` receiver syntax
 
 ## uncover-free.ss
 

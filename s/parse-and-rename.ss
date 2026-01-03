@@ -105,11 +105,10 @@
                                         clause*))]))))
 
 (module+ test ; Case
-  #|
-  (check-equal?
+  #;(check-equal?
     (Case '10 '([else 999]) (initial-env))
     '(let ([tmp8 '10]) (begin '999)))
-  (check-equal?
+  #;(check-equal?
     (Case '10
           '([(1 2 3) 3]
             [else 999])
@@ -128,7 +127,6 @@
                  (funcall tmp10.9 tmp9 (datum const3 (1 2 3))))))
          (begin '3)
          (begin '999))))
-  |#
   )
 (define Cond
   (let ()
@@ -162,17 +160,15 @@
   (check-match (Expr '(cond [(null? '()) => (lambda (l) (cons l l))]) primitives)
                `(cond [(primcall null? '()) => (lambda (,l) (primcall cons ,l ,l))]))
 
-  #|
-  (check-equal? (Cond '((even? '1) (odd? '1)) primitives)
+  #;(check-equal? (Cond '((even? '1) (odd? '1)) primitives)
                 '(cond
                    [(even? '1)]
-                   [(odd? '1)))
+                   [(odd? '1)]))
 
-  |#
 
-  #;(check-match (Cond '([(null? '()) => (lambda (x) 10)]) primitives)
+  (check-match (Cond '([(null? '()) => (lambda (x) 10)]) primitives)
                      `(cond
-                        [(null? '()) => (lambda (,x) 10)]))
+                        [(primcall null? '()) => (lambda (,x) '10)]))
   )
 
 (define (List expr* env) (match expr*
@@ -308,32 +304,5 @@
   ;(check-equal? (Expr '(quote foo) primitives) '(datum const2 foo))
   ;(check-equal? (Expr '(quote (a b c)) primitives) '(datum const3 (a b c)))
   ;(check-equal? (Expr '(quote (if x)) primitives) '(datum const4 (if x)))
-  #|
-  (check-match (Expr '(let ([v (make-vector 5 0)])
-                        (letrec
-                          ([uv (lambda (v n)
-                                 (cond
-                                   [(< n 0) v]
-                                   [else
-                                     (vector-set! v n n)
-                                     (uv v (sub1 n))]))])
-                          (uv v 4)))
-                     primitives)
-               `(let ([,v (primcall make-vector '5 '0)])
-                  (begin
-                    (let ([,uv ,_])
-                      (let ([,t (lambda (,xv ,xn)
-                                  (begin
-                                    (cond [(primcall < ,xn '0) ,xv]
-                                          [else
-                                            (begin
-                                              (primcall vector-set! ,xv ,xn ,xn)
-                                              (funcall ,uv ,v (primcall sub1 ,xn)))])))])
-                        (begin
-                          (primcall set! ,uv ,t)
-                          (begin
-                            (funcall ,uv ,v '4)))))))
-               (syms-unique? v uv xv xn))
-  |#
   )
 
