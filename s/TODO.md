@@ -4,8 +4,6 @@ This file lists commented-out unit tests in the compiler passes. These tests are
 
 ## parse-and-rename.ss
 
-- **Line 108-110**: `Case` with else clause - expects desugaring to let + begin + quoted value
-- **Line 111-129**: `Case` with numeric patterns and else - expects complex desugaring with lambda and set!
 - **Line 163-166**: `Cond` with two unary clauses - tests cond handling without test expressions
 
 ## uncover-free.ss

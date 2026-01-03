@@ -134,7 +134,18 @@
            [(1) #t]
            [else "neither"])
          "\"neither\"")
- 
+
+       (test-case
+         (case 10
+           [else 999])
+         "999")
+
+       (test-case
+         (case 2
+           [(1 2 3) "few"]
+           [else "many"])
+         "\"few\"")
+
        #;(test-case
          (let ()
            (define x 10)

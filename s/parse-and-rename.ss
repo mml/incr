@@ -105,28 +105,12 @@
                                         clause*))]))))
 
 (module+ test ; Case
-  #;(check-equal?
+  (check-equal?
     (Case '10 '([else 999]) (initial-env))
-    '(let ([tmp8 '10]) (begin '999)))
-  #;(check-equal?
-    (Case '10
-          '([(1 2 3) 3]
-            [else 999])
-          (initial-env))
-    '(let ([tmp9 '10])
-       (if (let ([tmp10.9 '#f])
-             (let ([tmp11 (lambda (x.10 ls.11)
-                            (begin
-                              (if (primcall null? ls.11)
-                                (begin '#f)
-                                (if (primcall eqv? (primcall car ls.11) x.10)
-                                  (begin ls.11)
-                                  (begin (funcall tmp10.9 x.10 (primcall cdr ls.11)))))))])
-               (primcall set! tmp10.9 tmp11)
-               (begin
-                 (funcall tmp10.9 tmp9 (datum const3 (1 2 3))))))
-         (begin '3)
-         (begin '999))))
+    '(case '10 (else '999)))
+  (check-equal?
+    (Case '10 '([(1 2 3) 3] [else 999]) (initial-env))
+    '(case '10 ((1 2 3) '3) (else '999)))
   )
 (define Cond
   (let ()

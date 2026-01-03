@@ -175,4 +175,13 @@
                      (if (primcall zero? '2)
                        '7
                        '()))))
+
+  (check-match (Expr '(case '10 [else '999]))
+               `(let ([,t '10]) '999))
+
+  (check-match (Expr '(case '10 [(1 2 3) '3] [else '999]))
+               `(let ([,t '10])
+                  (if (primcall memv ,t '(1 2 3))
+                    '3
+                    '999)))
 )
