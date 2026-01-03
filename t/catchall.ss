@@ -338,8 +338,8 @@
       (test-case (eq? "abc" "cba")  "#f")
       #;(test-case (eq? "abc" "abc")  "unspecified")  ; implementation-defined
       (test-case (let ([x "hi"]) (eq? x x))  "#t")
-      #;(test-case (let ([x (string #\h #\i)]) (eq? x x))  "#t")
-      #;(test-case (eq? (string #\h #\i)
+      (test-case (let ([x (string #\h #\i)]) (eq? x x))  "#t")
+      (test-case (eq? (string #\h #\i)
                       (string #\h #\i))  "#f")
 
       ;(test-case (eq? '#vu8(1) '#vu8(1))  "unspecified")

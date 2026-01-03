@@ -27,10 +27,6 @@
 **Needs string-ref:**
 - `(let ([x (string-ref "hi" 0)]) (eq? x x))`
 
-**Needs string constructor:**
-- `(let ([x (string #\h #\i)]) (eq? x x))`
-- `(eq? (string #\h #\i) (string #\h #\i))`
-
 **Needs make-bytevector:**
 - 2 tests with make-bytevector
 
