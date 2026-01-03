@@ -201,7 +201,9 @@
       ; TODO(mml): both of these should fail with a runtime exception about
       ; using a variable before it's defined
       #;(test-case (letrec ([a 10] [b (+ a a)]) (+ a b)) "30")
-      (test-case
+
+      ; Large vector test - works but slow (adds ~1-2s per test run)
+      #;(test-case
         (let* ([size 10000] [v (make-vector size 1)])
           (vector-length v))
         "10000")

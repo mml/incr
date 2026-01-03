@@ -3,14 +3,12 @@
   (require "../s/test-driver.ss")
   (define (runtests)
     (test-cases "equality, equivalence, etc."
-      
-    ;(define interesting-numbers '(-1 0 1 999))
+      (test-case (= -1 -1) "#t")
+      (test-case (= 0 0) "#t")
+      (test-case (= 1 1) "#t")
+      (test-case (= 999 999) "#t")
 
-    ;Can't do this yet
-    #;(for-each (lambda (n)
-                (test-case `(= ,n ,n) "#t")))
-
-  (test-case
+      (test-case
     (let ((f (lambda () (cons 1 "H"))))
       (eq? (f) (f)))
     "#f")
