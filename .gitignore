@@ -4,3 +4,7 @@ x-test-program*
 compiled
 /arm32le
 /rv64le
+arm32le.stdout
+arm32le.stderr
+rv64le.stdout
+rv64le.stderr
