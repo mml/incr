@@ -1,0 +1,68 @@
+#!/bin/zsh
+
+# test-parallel: Run integration tests for both architectures in parallel
+# with 10-minute timeouts and failure reporting
+
+# Clean up old log files
+rm -f arm32le.stdout arm32le.stderr rv64le.stdout rv64le.stderr
+
+# Function to report failure
+report_failure() {
+    local arch=$1
+    local exit_code=$2
+
+    echo "${arch} FAILED (exit code ${exit_code}):"
+    tail -10 "${arch}.stderr" 2>/dev/null
+    echo "---"
+}
+
+# Start arm32le test
+echo "arm32le started..."
+(timeout 10m make -j20 -C arm32le/s test > arm32le.stdout 2> arm32le.stderr) &
+arm32le_pid=$!
+
+# Start rv64le test
+echo "rv64le started..."
+(timeout 10m make -j20 -C rv64le/s test > rv64le.stdout 2> rv64le.stderr) &
+rv64le_pid=$!
+
+# Initialize exit codes
+arm32le_exit=""
+rv64le_exit=""
+
+# Wait for both processes to complete
+while [[ -z $arm32le_exit || -z $rv64le_exit ]]; do
+    # Check if arm32le is still running
+    if [[ -z $arm32le_exit ]]; then
+        if ! kill -0 $arm32le_pid 2>/dev/null; then
+            wait $arm32le_pid
+            arm32le_exit=$?
+            echo "arm32le completed (exit $arm32le_exit)"
+            if [[ $arm32le_exit -ne 0 ]]; then
+                report_failure "arm32le" $arm32le_exit
+            fi
+        fi
+    fi
+
+    # Check if rv64le is still running
+    if [[ -z $rv64le_exit ]]; then
+        if ! kill -0 $rv64le_pid 2>/dev/null; then
+            wait $rv64le_pid
+            rv64le_exit=$?
+            echo "rv64le completed (exit $rv64le_exit)"
+            if [[ $rv64le_exit -ne 0 ]]; then
+                report_failure "rv64le" $rv64le_exit
+            fi
+        fi
+    fi
+
+    # Small sleep to avoid busy loop
+    sleep 0.5
+done
+
+# Exit with appropriate code
+if [[ $arm32le_exit -eq 0 && $rv64le_exit -eq 0 ]]; then
+    exit 0
+else
+    exit 1
+fi
