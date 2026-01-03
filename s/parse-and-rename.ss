@@ -144,11 +144,10 @@
   (check-match (Expr '(cond [(null? '()) => (lambda (l) (cons l l))]) primitives)
                `(cond [(primcall null? '()) => (lambda (,l) (primcall cons ,l ,l))]))
 
-  #;(check-equal? (Cond '((even? '1) (odd? '1)) primitives)
+  (check-equal? (Expr '(cond [(null? '())] [(zero? '0)]) primitives)
                 '(cond
-                   [(even? '1)]
-                   [(odd? '1)]))
-
+                   [(primcall null? '())]
+                   [(primcall zero? '0)]))
 
   (check-match (Cond '([(null? '()) => (lambda (x) 10)]) primitives)
                      `(cond
