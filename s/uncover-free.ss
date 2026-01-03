@@ -64,7 +64,7 @@
   (define cases
     '(
       ('9 . '9)
-      #;((funcall
+      ((funcall
          (funcall
            (funcall
              (lambda (x0)
@@ -78,7 +78,7 @@
            (funcall
              (lambda (x0) (free ()
                (lambda (x1) (free (x0)
-                 (lambda (x2) (free (x1 x0)
+                 (lambda (x2) (free (x0 x1)
                    (primcall + x2 (primcall + x0 x1))))))))
              '10) '20) '30))
       )
