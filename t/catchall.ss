@@ -308,7 +308,7 @@
 
       ;; Characters
       (test-case (eq? #\a #\b)  "#f")
-      #;(test-case (eq? #\a #\a)  "unspecified")  ; implementation-defined
+      (test-case (eq? #\a #\a)  "#t")  ; implementation-defined
       #;(test-case (let ([x (string-ref "hi" 0)])
                    (eq? x x))  "unspecified")
 
@@ -328,7 +328,7 @@
 
       ;; Pairs
       (test-case (eq? '(a) '(b))  "#f")
-      #;(test-case (eq? '(a) '(a))  "unspecified")  ; implementation-defined
+      (test-case (eq? '(a) '(a))  "#f")  ; implementation-defined
       (test-case (let ([x '(a . b)]) (eq? x x))  "#t")
       (test-case (let ([x (cons 'a 'b)])
                    (eq? x x))  "#t")
@@ -336,7 +336,7 @@
 
       ;; Strings (constants)
       (test-case (eq? "abc" "cba")  "#f")
-      #;(test-case (eq? "abc" "abc")  "unspecified")  ; implementation-defined
+      (test-case (eq? "abc" "abc")  "#f")  ; implementation-defined
       (test-case (let ([x "hi"]) (eq? x x))  "#t")
       (test-case (let ([x (string #\h #\i)]) (eq? x x))  "#t")
       (test-case (eq? (string #\h #\i)
@@ -349,13 +349,13 @@
       #;(test-case (let ([x (make-bytevector 10 0)])
                    (eq? x (make-bytevector 10 0)))  "#f")
 
-      ;; Vectors - need vector constructor and datum->code support
+      ;; Vectors
       #;(test-case (eq? '#(a) '#(b))  "#f")  ; needs vector in datum->code
       #;(test-case (eq? '#(a) '#(a))  "unspecified")  ; implementation-defined
       #;(test-case (let ([x '#(a)]) (eq? x x))  "#t")  ; needs vector in datum->code
-      #;(test-case (let ([x (vector 'a)])
-                   (eq? x x))  "#t")  ; needs vector constructor
-      #;(test-case (eq? (vector 'a) (vector 'a))  "#f")  ; needs vector constructor
+      (test-case (let ([x (vector 'a)])
+                   (eq? x x))  "#t")
+      (test-case (eq? (vector 'a) (vector 'a))  "#f")
 
       ;; Primitives as values - not implemented
       #;(test-case (eq? car car)  "#t")

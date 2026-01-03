@@ -179,6 +179,18 @@
   ['() ''()]
   [`(,hd ,tl* ___) `(primcall cons ,(Expr hd env) ,(List tl* env))]))
 
+(define (Vector expr* env)
+  (let ([count (length expr*)]
+        [vec-var (gensym 'vec)])
+    (if (zero? count)
+        `(primcall make-vector '0 (primcall void))
+        `(let ([,vec-var (primcall make-vector ',count (primcall void))])
+           ,(let build-sets ([exprs (Expr* expr* env)] [i 0])
+              (if (null? exprs)
+                  vec-var
+                  `(let ([,(gensym '_) (primcall vector-set! ,vec-var ',i ,(car exprs))])
+                     ,(build-sets (cdr exprs) (add1 i)))))))))
+
 (define (Letrec* x* e* body* env)
   (let* ([ux* (map unique-variable x*)]
          [env (extend-env* env x* ux*)]
@@ -248,6 +260,8 @@
         `(begin ,@(Expr* expr* env))]
       [`(list ,expr* ___)
         (List expr* env)]
+      [`(vector ,expr* ___)
+        (Vector expr* env)]
       [`(letrec ([,x* ,e*] ___) ,body* __1)
         (Letrec x* e* body* env)]
       [`(letrec* ([,x* ,e*] ___) ,body* __1)
