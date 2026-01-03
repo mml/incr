@@ -14,24 +14,3 @@
 (require "remove-memv.ss")
 (require "remove-complex-constants.ss")
 (require "simplify-binding-forms.ss")
-
-(define passes (list parse-and-rename make-begin-explicit uncover-settable remove-set! uncover-free collect-code identify-tail-calls))
-
-(define (apply-passes p* e)
-  (cond
-    [(null? p*) e]
-    [else
-      (apply-passes (cdr p*) ((car p*) e))]))
-
-(define (all-passes e)
-  (apply-passes passes e))
-
-(define (passes-up-to p e)
-  (let loop ([passes passes] [e e])
-    (cond
-      [(null? passes)
-       (error 'passes-up-to "Never found pass")]
-      [(eq? p (car passes))
-       ((car passes) e)]
-      [else
-        (loop (cdr passes) ((car passes) e))])))
