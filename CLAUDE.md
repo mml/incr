@@ -6,6 +6,7 @@ This is an incremental Scheme-to-native compiler targeting ARM32 and RISC-V 64-b
 
 ```
 incr/
+├── TODO.md              # Infrastructure gaps (variadic procedures, preamble)
 ├── s/                    # Compiler source (Racket/Scheme)
 │   ├── *.ss             # Compiler passes
 │   ├── arm32le.def      # ARM32 code generator
@@ -117,6 +118,16 @@ This is non-standard but simplifies the compiler (no symbol table needed).
 
 ### No Code Generator Unit Tests
 The `.def` files lack unit tests - only integration tests exist in `t/`. This is a known gap (documented in `t/TODO.md`).
+
+### Missing Language Infrastructure
+See `/TODO.md` for major missing features:
+- **No variadic procedures** - Cannot define user functions with variable arguments (e.g., `(define (foo . args) ...)`)
+- **No preamble/standard library** - No way to define standard Scheme procedures once and link them into all programs
+
+These limitations mean that functions like `vector`, `list`, etc. must be either:
+- Hard-coded as primitives with code generation
+- Transformed in the compiler (e.g., `vector` → `make-vector` + `vector-set!` calls)
+- Manually defined by users in every program
 
 # Debugging Test Failures
 
