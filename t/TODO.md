@@ -8,21 +8,12 @@
 
 ### eq? tests from tspl4 (catchall.ss:288-376)
 
-**Enabled (8 tests):**
-- Type mismatches: `(eq? #f '())`
-- Characters: `(eq? #\a #\b)`
-- Booleans: `(eq? #t #t)`, `(eq? #f #f)`, `(eq? #t #f)`, `(eq? (null? '()) #t)`
-- Strings: `(eq? "abc" "cba")`, `(let ([x "hi"]) (eq? x x))`
-- Closures: identity and inequality tests
-
 **Implementation-defined (commented):**
 - Tests that return specific values but spec says "unspecified"
 - Examples: `(eq? #\a #\a)`, `(eq? "abc" "abc")`, `(eq? (lambda (x) x) (lambda (y) y))`
 
-**Needs string->symbol (~25 tests):**
-- Most eq? tests use quoted symbols like `'a`, which the compiler transforms to `(string->symbol (string #\a))`
-- Includes: symbol tests, pair tests with quoted data, vector tests with quoted data
-- Also: `(eq? 'a (string->symbol "a"))` explicitly uses string->symbol
+**Needs symbol interning**
+- Two `eq?` tests.
 
 **Needs string-ref:**
 - `(let ([x (string-ref "hi" 0)]) (eq? x x))`
