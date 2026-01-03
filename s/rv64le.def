@@ -184,7 +184,12 @@
            (emit "  sb t2,(t0)")
            (emit "  addi t0,t0,1"))
          (primcall-operands expr))
-       (emit "  ori a0,a0,~a" (constant string-tag)))]; return tagged ptr
+       (emit "  ori a0,a0,~a" (constant string-tag)))]  ; return tagged ptr
+    [(string->symbol)
+     (emit-expr (primcall-operand1 expr) si env)              ; evaluate string argument to a0
+     (emit "  sd a0, (~a)" (constant heap-register))          ; store string pointer at offset 0
+     (emit "  ori a0,~a,~a" (constant heap-register) (constant symbol-tag))  ; tag pointer with #b100
+     (emit "  addi ~a,~a,8" (constant heap-register) (constant heap-register))]  ; advance heap by 8 bytes
     ))
 
 (define (emit-side-effect-primcall op expr si env)
@@ -208,7 +213,7 @@
   (let ([op (primcall-op expr)])
     (emit "/* ~a {{{ */" op)
     (case op
-      [(cons make-vector string)
+      [(cons make-vector string string->symbol)
        (emit-allocation-primcall op expr si env)]
       [(vector-set!)
        (emit-side-effect-primcall op expr si env)]
