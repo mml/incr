@@ -49,18 +49,26 @@
 
 (parameterize ([scramble-link-register? #f])
   (let* ([inp (open-input-file input-filename)]
-         [prog (read inp)])
+         [prog-list (let loop ([exprs '()])
+                      (let ([expr (read inp)])
+                        (if (eof-object? expr)
+                            (begin
+                              (close-input-port inp)
+                              (reverse exprs))
+                            (loop (cons expr exprs)))))])
+    (when (null? prog-list)
+      (error 'compile-scheme "empty program"))
     (cond
       [(compile-only?)
        (let ([out (open-output-file (output-filename input-filename))])
            (parameterize ([compile-port out])
-             (compile-program prog))
+             (compile-program prog-list))
            (flush-output out)
            (close-output-port out))]
       [else
         (let-values ([(sp in) (fork-as (output-filename input-filename))])
           (parameterize ([compile-port in])
-            (compile-program prog))
+            (compile-program prog-list))
           (flush-output in)
           (close-output-port in)
           (subprocess-wait sp)

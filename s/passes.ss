@@ -1,8 +1,9 @@
 #lang racket
 
 (provide (all-defined-out))
-(provide make-begin-explicit uncover-settable remove-set! uncover-free parse-and-rename collect-code identify-tail-calls simplify-conditionals remove-memv remove-complex-constants simplify-binding-forms)
+(provide normalize-program make-begin-explicit uncover-settable remove-set! uncover-free parse-and-rename collect-code identify-tail-calls simplify-conditionals remove-memv remove-complex-constants simplify-binding-forms)
 
+(require "normalize-program.ss")
 (require "make-begin-explicit.ss")
 (require "uncover-settable.ss")
 (require "remove-set.ss")

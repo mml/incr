@@ -28,11 +28,11 @@
 (define (program-path) (string-replace (assembly-path) ".s" ""))
 (define (output-path) (string-replace (assembly-path) ".s" ".out"))
 
-(define (run-compile expr)
+(define (run-compile expr*)
   (let ([p (open-output-file (assembly-path) #:exists 'replace)])
     (parameterize ([compile-port p]
                    [scramble-link-register? #f])
-      (compile-program expr))
+      (compile-program expr*))
     (flush-output p)
     (close-output-port p)))
 
@@ -76,35 +76,50 @@
 (define-syntax test-cases
   (lambda (stx)
     (syntax-case stx (skip test-case)
-      [(_ desc (test-case expr expected) ...)
+      ; Pattern matches variable args: (test-case expr0 expr ... expected)
+      [(_ desc (test-case expr0 expr ... expected) ...)
        #'(begin
            (when (not (precompiled-driver-object)) (build-driver))
-           (/test-cases desc (list (quote expr) ...) (list expected ...) #f))]
-      [(_ skip desc (test-case expr expected) ...)
-       #'(/test-cases desc (list (quote expr) ...) (list expected ...) #t)])))
+           (/test-cases desc
+                        (list (list (quote expr0) (quote expr) ...) ...)
+                        (list expected ...)
+                        #f))]
+      [(_ skip desc (test-case expr0 expr ... expected) ...)
+       #'(/test-cases desc
+                     (list (list (quote expr0) (quote expr) ...) ...)
+                     (list expected ...)
+                     #t)])))
 
 (define-syntax (test-case stx)
   (syntax-case stx (str)
-    [(_ str expr expected)
-     (syntax (/test-case (quote expr) (string-append "\"" expected "\"")))]
-    [(_ expr expected)
-     (syntax (/test-case (quote expr) expected))]))
+    ; String case: (test-case str expr0 expr ... expected)
+    [(_ str expr0 expr ... expected)
+     (let ([exprs-stx (syntax->list #'(expr0 expr ...))])
+       #`(/test-case (list #,@(map (lambda (e) #`(quote #,e)) exprs-stx))
+                     (string-append "\"" expected "\"")))]
+    ; Normal case: (test-case expr0 expr ... expected)
+    [(_ expr0 expr ... expected)
+     (let ([exprs-stx (syntax->list #'(expr0 expr ...))])
+       #`(/test-case (list #,@(map (lambda (e) #`(quote #,e)) exprs-stx))
+                    expected))]))
 
-(define (/test-cases desc exprs expecteds skip?)
+(define (/test-cases desc expr-lists expecteds skip?)
   (cond
     [skip? (printf "Skipping cases ~s~n" desc)]
     [else
       (printf "Cases '~a'~n" desc)
       (let ([t0 (current-milliseconds)])
-        (let f ([exprs exprs] [expecteds expecteds])
+        (let f ([expr-lists expr-lists] [expecteds expecteds])
           (cond
-            [(null? exprs) (printf "~vs elapsed for ~s~n" (/ (- (current-milliseconds) t0) 1000.0) desc)]
-            [(/test-case (car exprs) (car expecteds))
-             (f (cdr exprs) (cdr expecteds))])))]))
+            [(null? expr-lists)
+             (printf "~vs elapsed for ~s~n"
+                     (/ (- (current-milliseconds) t0) 1000.0) desc)]
+            [(/test-case (car expr-lists) (car expecteds))
+             (f (cdr expr-lists) (cdr expecteds))])))]))
 
-(define (/test-case expr expected)
-  (printf "Test: ~a~n" (pretty-format expr))
-  (run-compile expr)
+(define (/test-case expr* expected)
+  (printf "Test: ~a~n" (pretty-format expr*))
+  (run-compile expr*)
   (assemble)
   (build)
   (execute)
