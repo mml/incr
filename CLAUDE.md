@@ -26,6 +26,7 @@ and generates assembly code that links with a small C runtime.
 - [Debugging](#debugging-test-failures)
 - [Design Decisions](#design-decisions)
 - [Common Gotchas and Limitations](#common-gotchas-and-limitations)
+- [RISC-V Code Generation](#risc-v-code-generation)
 
 ## Project Structure
 
@@ -545,3 +546,25 @@ notes.
   tests
 - Without these, fresh clones fail with "cannot open input
   file" errors
+
+## RISC-V Code Generation
+
+**See `rv64le.md` for architecture-specific gotchas.**
+
+When implementing primitives or porting ARM32 code to RISC-V,
+consult `rv64le.md` for:
+
+- **Comment syntax differences** (`@` vs `#`)
+- **Wordsize-aware heap advancement** (critical bug risk)
+- **Tag clearing patterns** (bitwise operations)
+- **Register allocation** (callee-saved vs temporaries)
+- **Load immediate behavior** (pseudo-instruction expansion)
+- **Branch and addressing patterns** (RISC-V syntax)
+
+Key lesson: RISC-V wordsize=8 (not 4 like ARM32). Allocations
+storing multiple fields must advance heap by `(* 2 (wordsize))`,
+not hardcoded bytes. Silent data corruption can result from heap
+pointer bugs.
+
+Also reference CLAUDE.md [Architecture Quick Reference](#architecture-quick-reference)
+for register and instruction patterns across both architectures.
