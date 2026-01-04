@@ -29,6 +29,17 @@ incr/
 └── configure            # Script to set up workareas
 ```
 
+## Work Directives
+
+- always check for balanced parentheses after you create or modify a file
+- the code base prefers square brackets in certain places, including:
+  - binding forms like `(let ([x 5] [y 2]) ...)`
+  - cond like `(cond [(even? x) #t] [else 999])`
+  - case like `(case foo [(a b c) 'letter] [(1 2 3) 'number])`
+  - case-lambda
+  - match
+  - there may be others. emulate this style where you see it
+
 ## Build Workflow
 
 **Initial setup:**
