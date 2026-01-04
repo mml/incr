@@ -9,6 +9,12 @@
 (define-constant wordsize-shift 2)
 (define-constant wordsize 4)
 
+;; TODO: Replace magic numbers #b11 and #b100 with named constants
+;; #b11 (3) - fixnum tag mask (low 2 bits == 00 means fixnum)
+;; #b100 (4) - odd bit for fixnums (shift 1 fixnum-shift)
+;; These appear throughout the file in type checks and odd?/even?
+;; Need to add fixnum-mask and fixnum-odd-bit constants to compile-shared.ss
+
 (define (emit-prologue)
   (emit "  .arch armv8-a")
   (emit "  .syntax unified")
@@ -442,7 +448,7 @@
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env) ; evaluate denominator
      (emit "  str r0, [~a,#~a]" heap-register (wordsize)) ; store denominator at offset wordsize
      (emit "  add r0,~a,#~a" heap-register (constant ratnum-tag)) ; tag pointer with #b101
-     (emit "  add ~a,~a,#8" heap-register heap-register)] ; advance heap by 8 bytes
+     (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))] ; advance heap by 2 words
     ))
 
 (define (emit-side-effect-primcall op expr si env)
@@ -597,7 +603,73 @@
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
      (emit "  sub r0,r1,r0")]
-    [(= eq? eqv?)
+    [(=)
+     (emit "  @ numeric equality {{{")
+     (emit-expr (primcall-operand1 expr) si env)
+     (emit "  str r0, [sp,#~a]" si)
+     (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
+     (emit "  ldr r1, [sp,#~a]" si)
+     (emit "  mov r2, r0")  ; r2 = operand2
+     (emit "  mov r3, r1")  ; r3 = operand1
+     (with-saved-registers [si ("r4" "r5" "r6")]
+       (let ([both-fixnum (unique-label "num_eq_both_fixnum")]
+             [fast-return (unique-label "num_eq_fast")]
+             [both-ratnum (unique-label "num_eq_both_ratnum")]
+             [check-mixed (unique-label "num_eq_check_mixed")]
+             [false-ret (unique-label "num_eq_false")]
+             [true-ret (unique-label "num_eq_true")]
+             [done-ret (unique-label "num_eq_done")])
+         ; Check if both are fixnums (low 2 bits both 00)
+         (emit "  and r4, r2, #0b11")  ; r4 = low 2 bits of operand2
+         (emit "  and r5, r3, #0b11")  ; r5 = low 2 bits of operand1
+         (emit "  orr r6, r4, r5")     ; r6 = r4 | r5
+         (emit "  cmp r6, #0")         ; are both fixnums?
+         (emit "  beq ~a" both-fixnum)
+
+         ; Not both fixnums - check if both are ratnums
+         (emit "  and r4, r2, #0b111")      ; r4 = low 3 bits of operand2
+         (emit "  and r5, r3, #0b111")      ; r5 = low 3 bits of operand1
+         (emit "  cmp r4, #~a" (constant ratnum-tag))
+         (emit "  bne ~a" check-mixed)
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" both-ratnum)
+
+         ; Check mixed ratnum/fixnum cases
+         (emit-label check-mixed)
+         (emit "  b ~a" false-ret)  ; TODO: implement mixed case
+
+         ; Both are fixnums - simple comparison
+         (emit-label both-fixnum)
+         (emit "  cmp r2, r3")
+         (emit "  beq ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Both are ratnums - compare num and denom
+         (emit-label both-ratnum)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         ; Load numerators
+         (emit "  ldr r3, [r4]")    ; r3 = numerator of ratnum1
+         (emit "  ldr r2, [r5]")    ; r2 = numerator of ratnum2
+         (emit "  cmp r2, r3")
+         (emit "  bne ~a" false-ret)
+         ; Numerators equal - check denominators
+         (emit "  ldr r3, [r4, #~a]" (wordsize))  ; r3 = denom of ratnum1
+         (emit "  ldr r2, [r5, #~a]" (wordsize))  ; r2 = denom of ratnum2
+         (emit "  cmp r2, r3")
+         (emit "  beq ~a" true-ret)
+
+         (emit-label false-ret)
+         (emit-move32 'always "r0" (immediate-rep #f))
+         (emit "  b ~a" done-ret)
+
+         (emit-label true-ret)
+         (emit-move32 'always "r0" (immediate-rep #t))
+
+         (emit-label done-ret)
+         (emit "  @ numeric equality }}}")))]
+
+    [(eq? eqv?)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)

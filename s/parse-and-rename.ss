@@ -276,6 +276,12 @@
         `(when ,(Expr test env) ,(Expr conseq env))]
       [`(unless ,test ,altern)
         `(unless ,(Expr test env) ,(Expr altern env))]
+      [(? rational? r)
+       (if (= (denominator r) 1)
+           (Expr (numerator r) env)
+           (Expr `(make-ratnum ,(numerator r)
+                               ,(denominator r))
+                 env))]
       [`(quote ,_) expr]
       [(? string? c) c]
       [`(,(? symbol? e0) ,e* ___)

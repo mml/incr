@@ -14,6 +14,12 @@
 (define-constant closure-register closure-register)
 (define-constant heap-register "s11") ; aka x27, highest numbered callee-saved register
 
+;; TODO: Replace magic numbers #b11 and #b100 with named constants
+;; #b11 (3) - fixnum tag mask (low 2 bits == 00 means fixnum)
+;; #b100 (4) - odd bit for fixnums (shift 1 fixnum-shift)
+;; These appear throughout the file in type checks and odd?/even?
+;; Need to add fixnum-mask and fixnum-odd-bit constants to compile-shared.ss
+
 ; TODO: maybe make a fresh on one each compile-program invocation?
 (define (make-labeler)
   (let ([x 0])
@@ -196,7 +202,7 @@
      (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env) ; evaluate denominator
      (emit "  sd a0, ~a(~a)" (constant wordsize) (constant heap-register)) ; store denominator at offset wordsize
      (emit "  ori a0,~a,~a" (constant heap-register) (constant ratnum-tag)) ; tag pointer with #b101
-     (emit "  addi ~a,~a,8" (constant heap-register) (constant heap-register))] ; advance heap by 8 bytes
+     (emit "  addi ~a,~a,~a" (constant heap-register) (constant heap-register) (* 2 (constant wordsize)))] ; advance heap by 2 words
     ))
 
 (define (emit-side-effect-primcall op expr si env)
@@ -402,7 +408,61 @@
        (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
        (emit "ld a1,~a(sp)" si)
        (emit "sub a0,a1,a0")]
-      [(= eq? eqv?)
+      [(=)
+       (emit "# numeric equality {{{")
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "sd a0,~a(sp)" si)
+       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+       (emit "ld a1,~a(sp)" si)
+       (emit "mv a2, a0")
+       (emit "mv a3, a1")
+       (with-saved-registers [si ("s4" "s5" "s6")]
+         (let ([both-fixnum (unique-label "num_eq_both_fixnum")]
+               [both-ratnum (unique-label "num_eq_both_ratnum")]
+               [check-mixed (unique-label "num_eq_check_mixed")]
+               [false-ret (unique-label "num_eq_false")]
+               [true-ret (unique-label "num_eq_true")]
+               [done-ret (unique-label "num_eq_done")])
+           (emit "andi s4, a2, 0b11")
+           (emit "andi s5, a3, 0b11")
+           (emit "or s6, s4, s5")
+           (emit "beq s6, x0, ~a" both-fixnum)
+
+           (emit "andi s4, a2, ~a" (constant ptr-mask))
+           (emit "andi s5, a3, ~a" (constant ptr-mask))
+           (emit "li s6, ~a" (constant ratnum-tag))
+           (emit "bne s4, s6, ~a" check-mixed)
+           (emit "beq s5, s6, ~a" both-ratnum)
+
+           (emit-label check-mixed)
+           (emit "j ~a" false-ret)
+
+           (emit-label both-fixnum)
+           (emit "beq a2, a3, ~a" true-ret)
+           (emit "j ~a" false-ret)
+
+           (emit-label both-ratnum)
+           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
+           (emit "and s4, a3, s6")
+           (emit "and s5, a2, s6")
+           (emit "ld a3, 0(s4)")
+           (emit "ld a2, 0(s5)")
+           (emit "bne a2, a3, ~a" false-ret)
+           (emit "ld a3, ~a(s4)" (constant wordsize))
+           (emit "ld a2, ~a(s5)" (constant wordsize))
+           (emit "beq a2, a3, ~a" true-ret)
+
+           (emit-label false-ret)
+           (emit "li a0, ~a" (immediate-rep #f))
+           (emit "j ~a" done-ret)
+
+           (emit-label true-ret)
+           (emit "li a0, ~a" (immediate-rep #t))
+
+           (emit-label done-ret)
+           (emit "# numeric equality }}}")))]
+
+      [(eq? eqv?)
        (let ([L-operands-equal (unique-label)]
              [L-end (unique-label)])
          (emit-expr (primcall-operand1 expr) si env)

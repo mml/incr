@@ -2,6 +2,62 @@
   (provide runtests)
   (require "../s/test-driver.ss")
   (define (runtests)
+    (test-cases "literals"
+      ; Basic positive ratnum
+      (test-case 2/3 "2/3")
+
+      ; Negative numerator
+      (test-case -2/3 "-2/3")
+
+      ; Zero numerator
+      (test-case 0/5 "0")
+
+      ; Denominator of 1 (should return fixnum)
+      (test-case 5/1 "5")
+
+      ; GCD reduction in literal
+      (test-case 6/8 "3/4")
+
+      ; Already in lowest terms
+      (test-case 7/11 "7/11")
+
+      ; Negative with GCD
+      (test-case -6/8 "-3/4")
+
+      ; Larger prime fraction
+      (test-case 355/113 "355/113")
+      )
+
+    (test-cases "Equality and identity"
+      ; Identical literals - separate allocations, so not eq?
+      (test-case (= 1/2 1/2) "#t")
+      (test-case (eq? 1/2 1/2) "#f")
+
+      ; Different literals reducing to same value
+      (test-case (= 2/4 1/2) "#t")
+      (test-case (eq? 2/4 1/2) "#f")
+
+      ; Ratnum that reduces to fixnum vs fixnum literal
+      (test-case (= 3/1 3) "#t")
+      (test-case (eq? 3/1 3) "#t")
+
+      ; Negative ratnum literals with same value
+      (test-case (= -1/2 -1/2) "#t")
+      (test-case (eq? -1/2 -1/2) "#f")
+
+      ; Different GCD-reducible literals
+      (test-case (= 6/8 3/4) "#t")
+      (test-case (eq? 6/8 3/4) "#f")
+
+      ; Zero ratnum
+      (test-case (= 0/5 0) "#t")
+      (test-case (eq? 0/5 0) "#t")
+
+      ; Unequal ratnums
+      (test-case (= 1/2 1/3) "#f")
+      (test-case (= 2/5 3/7) "#f")
+      )
+
     (test-cases "Division returning fixnums (exact division)"
       ; Basic exact division - returns fixnum
       (test-case
