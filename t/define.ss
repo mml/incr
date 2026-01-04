@@ -62,6 +62,13 @@
         "400")
       )
 
+    (test-cases "Nested defines"
+      (test-case (define (f x)
+                   (define (g x) (* 2 x))
+                   (g (g x)))
+                 (f 1)
+                 "4"))
+
     (test-cases "Internal defines in let"
       ; Internal defines in let - simple function definitions
       (test-case
