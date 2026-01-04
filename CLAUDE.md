@@ -94,13 +94,19 @@ Allocated on heap, pointer tagged with low 3 bits:
 |------|-----|--------|
 | Pair | `#b001` | `[car\|cdr]` (2 words) |
 | Vector | `#b010` | `[size\|elem0\|elem1\|...]` (size+1 words) |
-| String | `#b011` | `[size\|bytes...]` (size in bytes, 8-byte aligned) |
+| String | `#b011` | `[size\|byte0\|byte1\|...]` (size in bytes, 8-byte aligned) |
 | Symbol | `#b100` | `[string-ptr]` (1 word, points to string) |
 | Closure | `#b110` | `[code-ptr\|free0\|free1\|...]` |
 
 **Memory alignment:** All heap allocations are 8-byte aligned. The low 3 bits of aligned pointers are always 0, which allows using them for type tags.
 
 **Heap pointer:** Maintained in r8 (ARM32) or s11 (RISC-V), points to next free byte.
+
+**String layout detail:**
+- Header: 1 word (4 bytes ARM32, 8 bytes RISC-V) containing byte count
+- Data: N bytes of UTF-8 character data (1 byte per ASCII character)
+- Padding: To reach next 8-byte boundary
+- Example: string "hi" occupies 8 bytes total: `[2][h][i][5 bytes padding]`
 
 ## Design Decisions
 
@@ -203,6 +209,57 @@ For allocation primcalls, add a case to `emit-allocation-primcall`:
 - Save: `str r0, [sp, #si]` (ARM) or `sd a0, si(sp)` (RISC-V)
 - Load: `ldr r0, [sp, #si]` (ARM) or `ld a0, si(sp)` (RISC-V)
 
+**Byte-access vs word-access operations:**
+
+Strings store data as individual bytes, unlike vectors which store word-sized elements. This creates key differences:
+
+| Operation | Vector | String |
+|-----------|--------|--------|
+| **Header** | 1 word of size info | 1 word of byte count |
+| **Element access** | Load word: `ldr`/`ld` | Load byte: `ldrb`/`lbu` |
+| **Index calculation** | Multiply by wordsize | No multiplication needed |
+| **Example** | `vector-ref v 2` → load at offset `(2+1)*8` | `string-ref s 2` → load at offset `2+8` |
+
+**String-ref pattern (byte-level access):**
+
+1. Clear the tag to get raw pointer
+2. Convert fixnum index to integer (right shift by fixnum-shift=2)
+3. Add wordsize constant to skip header (not multiply by wordsize)
+4. Load byte using `ldrb` (ARM32) or `lbu` (RISC-V)
+5. Convert byte to character by shifting and tagging:
+   - Shift left by char-shift (8 bits) to position the ASCII value
+   - OR with char-tag (`0b00001111`)
+
+**ARM32 example:**
+```scheme
+(with-saved-registers [si ("r4")]
+  (emit-expr string-operand si env)           ; string in r0
+  (emit "BIC r4,r0,#~a" (constant string-tag)) ; clear tag
+  (emit-expr index-operand si env)            ; index in r0 (fixnum)
+  (emit "LSR r1,r0,#~a" (constant fixnum-shift)) ; index→int
+  (emit "add r1,r1,#~a" (constant wordsize))  ; skip header
+  (emit "ldrb r0, [r4,r1]")                   ; load byte
+  (emit "LSL r0,r0,#~a" (constant char-shift)) ; position for char
+  (emit "orr r0,r0,#~a" (constant char-tag))) ; apply tag
+```
+
+**RISC-V example:**
+```scheme
+(with-saved-registers [si ("s4")]
+  (emit-expr string-operand si env)           ; string in a0
+  (emit "li t0,~a" (bitwise-not (constant string-tag)))
+  (emit "and s4,a0,t0")                       ; clear tag
+  (emit-expr index-operand si env)            ; index in a0 (fixnum)
+  (emit "srli a1,a0,~a" (constant fixnum-shift)) ; index→int
+  (emit "addi a1,a1,~a" (constant wordsize)) ; skip header
+  (emit "add s4,s4,a1")
+  (emit "lbu a0, (s4)")                       ; load byte unsigned
+  (emit "slli a0,a0,~a" (constant char-shift)) ; position for char
+  (emit "ori a0,a0,~a" (constant char-tag))) ; apply tag
+```
+
+**Key insight:** Use `with-saved-registers` to preserve one operand across multiple operations.
+
 **Testing:**
 - No unit tests for `.def` files - only integration tests in `t/`
 - Run `make unit` in `{arch}/s/` to test compiler passes
@@ -222,14 +279,11 @@ For allocation primcalls, add a case to `emit-allocation-primcall`:
    - `(string #\h #\i)` → Not implemented
    - The `string` primcall only handles compile-time string literals
 
-3. **No `string-ref`**:
-   - `(string-ref "hi" 0)` → Not implemented
-
-4. **Primitives not first-class**:
+3. **Primitives not first-class**:
    - `(eq? car car)` → Not implemented
    - Primitives like `car`, `cdr` cannot be used as values
 
-5. **No rationals, floats, bignums**:
+4. **No rationals, floats, bignums**:
    - `9/2`, `3.4`, large integers → Not implemented
 
 ## Test Result Interpretation
