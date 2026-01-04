@@ -68,6 +68,11 @@ incr/
   - case-lambda, match patterns
   - Emulate this style when adding new code
 
+### Documentation References
+
+**URL Aliases:** For future reference, use these short names:
+- `objects.html` → https://www.scheme.com/tspl4/objects.html
+
 ### Build Workflow
 
 **Initial setup:**
