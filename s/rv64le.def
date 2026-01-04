@@ -436,6 +436,19 @@
          (emit "  add s4,s4,a1")
          (emit "  ld a0, (s4)"))];            // "dereference and return"
 
+      [(string-ref)
+       (with-saved-registers [si ("s4")]
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "  li t0,~a" (bitwise-not (constant string-tag)))
+         (emit "  and s4,a0,t0")                ; // "clear string tag"
+         (emit-expr (primcall-operand2 expr) si env) ; index in a0 (fixnum)
+         (emit "  srli a1,a0,~a" (constant fixnum-shift)); // "index fixnum->int"
+         (emit "  addi a1,a1,~a" (constant wordsize));   // "skip size header"
+         (emit "  add s4,s4,a1")
+         (emit "  lbu a0, (s4)")              ; // "load byte unsigned"
+         (emit "  slli a0,a0,~a" (constant char-shift));  // "byte->char position"
+         (emit "  ori a0,a0,~a" (constant char-tag)))];   // "add char tag"
+
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])
     (emit "/* }}} end ~a */" op )))
 

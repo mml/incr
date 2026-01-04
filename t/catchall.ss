@@ -11,6 +11,18 @@
       (test-case (string #\1 #\2 #\3) (str "123"))
     )
 
+    (test-cases "string-ref"
+      (test-case (string-ref "a" 0) "#\\a")
+      (test-case (string-ref "hello" 0) "#\\h")
+      (test-case (string-ref "hello" 1) "#\\e")
+      (test-case (string-ref "hello" 4) "#\\o")
+      (test-case (string-ref "123" 0) "#\\1")
+      (test-case (string-ref "123" 1) "#\\2")
+      (test-case (string-ref "123" 2) "#\\3")
+      (test-case (let ([s (string #\x #\y #\z)])
+                   (string-ref s 1)) "#\\y")
+    )
+
     (test-cases "complex constants"
       (test-case (quote 5) "5")
       (test-case (quote (5 . 1)) "(5 . 1)")
@@ -309,8 +321,8 @@
       ;; Characters
       (test-case (eq? #\a #\b)  "#f")
       (test-case (eq? #\a #\a)  "#t")  ; implementation-defined
-      #;(test-case (let ([x (string-ref "hi" 0)])
-                   (eq? x x))  "unspecified")
+      (test-case (let ([x (string-ref "hi" 0)])
+                   (eq? x x))  "#t")
 
       ;; Booleans
       (test-case (eq? #t #t)  "#t")

@@ -15,9 +15,6 @@
 **Needs symbol interning**
 - Two `eq?` tests.
 
-**Needs string-ref:**
-- `(let ([x (string-ref "hi" 0)]) (eq? x x))`
-
 **Needs make-bytevector:**
 - 2 tests with make-bytevector
 

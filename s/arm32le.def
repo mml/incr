@@ -202,7 +202,7 @@
         [else
           (case (car x)
             [(add1 sub1 integer->char char->integer zero? not null? list? vector? + - = * <
-              cons car cdr cadr cddr caddr make-vector vector-ref vector-set! vector-length)
+              cons car cdr cadr cddr caddr make-vector vector-ref string-ref vector-set! vector-length)
              #t]
             [else #f])])
           #f))
@@ -604,6 +604,18 @@
        (emit "  LSL r1,r1,#~a" (wordsize-shift) (// "multiply by wordsize"))
        (emit "  ldr r0, [r4,r1]"            (// "dereference and return")))
      (emit "  @ vector-ref}}}")]
+    [(string-ref)
+     (emit "  @ string-ref{{{")
+     (with-saved-registers [si ("r4")]
+       (emit-expr (primcall-operand1 expr) si env)
+       (emit "  BIC r4,r0,#~a" (constant string-tag)   (// "clear string tag"))
+       (emit-expr (primcall-operand2 expr) si env) ; index in r0 (fixnum)
+       (emit "  LSR r1,r0,#~a" (constant fixnum-shift) (// "index fixnum->int"))
+       (emit "  add r1,r1,#~a" (constant wordsize)     (// "skip size header"))
+       (emit "  ldrb r0, [r4,r1]"           (// "load byte"))
+       (emit "  LSL r0,r0,#~a" (constant char-shift)   (// "byte->char position"))
+       (emit "  orr r0,r0,#~a" (constant char-tag)     (// "add char tag")))
+     (emit "  @ string-ref}}}")]
     [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
 (define (emit-begin exprs si env)
