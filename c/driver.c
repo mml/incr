@@ -25,6 +25,7 @@
 #define VECTOR_TAG      0b010
 #define STRING_TAG      0b011
 #define SYMBOL_TAG      0b100
+#define RATNUM_TAG      0b101
 #define CLOSURE_TAG     0b110
 #define PTR_MASK 0b111
 
@@ -107,6 +108,12 @@ void print_symbol(ptr_t *addr) {
   print_string((ptr_t *)(str & ADDRESS_MASK));
 }
 
+void print_ratnum(ptr_t *addr) {
+  ptr_t num = addr[0];
+  ptr_t den = addr[1];
+  printf("%d/%d", num >> FIXNUM_SHIFT, den >> FIXNUM_SHIFT);
+}
+
 void print_cdr(ptr_t cdr) {
   if (cdr == NULL_VALUE) {
     return;
@@ -145,6 +152,8 @@ void print_ptr(ptr_t val) {
     print_string((ptr_t *)(val & ADDRESS_MASK));
   } else if ((val & PTR_MASK) == SYMBOL_TAG) {
     print_symbol((ptr_t *)(val & ADDRESS_MASK));
+  } else if ((val & PTR_MASK) == RATNUM_TAG) {
+    print_ratnum((ptr_t *)(val & ADDRESS_MASK));
   } else {
     errx(1, "Unknown value 0x%04x\n", val);
   }

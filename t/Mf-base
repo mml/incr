@@ -1,6 +1,6 @@
 SRCS = $(shell cd ../../t; echo *.ss)
 
-tests = catchall vectors procedures prims binprims expansion immed equiv tak numprims define multi
+tests = catchall vectors procedures prims binprims expansion immed equiv tak numprims define multi ratnum
 DIRS = output $(tests:%=run-%/out)
 
 test: $(SRCS) $(tests)

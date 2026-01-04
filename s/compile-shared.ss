@@ -131,14 +131,15 @@
 (define-constant vector-tag #b010)
 (define-constant string-tag #b011)
 (define-constant symbol-tag #b100)
+(define-constant ratnum-tag #b101)
 (define-constant closure-tag #b110)
 (define-constant ptr-mask #b111)
 
 (module+ test
   (require rackunit)
   (let ([vals '(false-value true-value void-value null-value)]
-        [tags '(char-tag pair-tag vector-tag string-tag closure-tag symbol-tag)]
-        [masks '(char-mask ptr-mask ptr-mask ptr-mask ptr-mask ptr-mask)])
+        [tags '(char-tag pair-tag vector-tag string-tag ratnum-tag closure-tag symbol-tag)]
+        [masks '(char-mask ptr-mask ptr-mask ptr-mask ptr-mask ptr-mask ptr-mask)])
     ; none of the values matches any of the tag/mask combos
     (for-each (lambda (k)
                 (let ([val (lookup-constant k)])

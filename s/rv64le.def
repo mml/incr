@@ -190,6 +190,13 @@
      (emit "  sd a0, (~a)" (constant heap-register))          ; store string pointer at offset 0
      (emit "  ori a0,~a,~a" (constant heap-register) (constant symbol-tag))  ; tag pointer with #b100
      (emit "  addi ~a,~a,8" (constant heap-register) (constant heap-register))]  ; advance heap by 8 bytes
+    [(make-ratnum)
+     (emit-expr (primcall-operand1 expr) si env)    ; evaluate numerator argument to a0
+     (emit "  sd a0, (~a)" (constant heap-register))  ; store numerator at offset 0
+     (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env) ; evaluate denominator
+     (emit "  sd a0, ~a(~a)" (constant wordsize) (constant heap-register)) ; store denominator at offset wordsize
+     (emit "  ori a0,~a,~a" (constant heap-register) (constant ratnum-tag)) ; tag pointer with #b101
+     (emit "  addi ~a,~a,8" (constant heap-register) (constant heap-register))] ; advance heap by 8 bytes
     ))
 
 (define (emit-side-effect-primcall op expr si env)
@@ -213,7 +220,7 @@
   (let ([op (primcall-op expr)])
     (emit "/* ~a {{{ */" op)
     (case op
-      [(cons make-vector string string->symbol)
+      [(cons make-vector string string->symbol make-ratnum)
        (emit-allocation-primcall op expr si env)]
       [(vector-set!)
        (emit-side-effect-primcall op expr si env)]
@@ -286,6 +293,96 @@
          (emit-label L-is-vector)
          (emit "li a0, ~a" (immediate-rep #t))
          (emit-label L-end))]
+      [(rational?)
+       (emit-expr (primcall-operand1 expr) si env)
+       (let ([end-label (unique-label "rat_end")])
+         ; Check if fixnum (low 2 bits are 00)
+         (emit "andi a1,a0,0b11")
+         (emit "beqz a1,~a" end-label)
+         ; Check if ratnum (low 3 bits are 101)
+         (emit "andi a1,a0,0b111")
+         (emit "li a2,~a" (constant ratnum-tag))
+         (emit "bne a1,a2,not_ratnum_~a" end-label)
+         (emit-label end-label)
+         ; If a1 == ratnum-tag or a1 == 0 (fixnum), result is #t
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit "j rat_end_~a" end-label)
+         (emit "not_ratnum_~a:" end-label)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "rat_end_~a:" end-label))]
+      [(number?)
+       (emit-expr (primcall-operand1 expr) si env)
+       (let ([end-label (unique-label "num_end")])
+         ; Check if fixnum (low 2 bits are 00)
+         (emit "andi a1,a0,0b11")
+         (emit "beqz a1,~a" end-label)
+         ; Check if ratnum (low 3 bits are 101)
+         (emit "andi a1,a0,0b111")
+         (emit "li a2,~a" (constant ratnum-tag))
+         (emit "bne a1,a2,not_number_~a" end-label)
+         (emit-label end-label)
+         ; If a1 == ratnum-tag or a1 == 0 (fixnum), result is #t
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit "j num_end_~a" end-label)
+         (emit "not_number_~a:" end-label)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "num_end_~a:" end-label))]
+      [(exact?)
+       (emit-expr (primcall-operand1 expr) si env)
+       (let ([end-label (unique-label "exact_end")])
+         ; Check if fixnum (low 2 bits are 00)
+         (emit "andi a1,a0,0b11")
+         (emit "beqz a1,~a" end-label)
+         ; Check if ratnum (low 3 bits are 101)
+         (emit "andi a1,a0,0b111")
+         (emit "li a2,~a" (constant ratnum-tag))
+         (emit "bne a1,a2,not_exact_~a" end-label)
+         (emit-label end-label)
+         ; If a1 == ratnum-tag or a1 == 0 (fixnum), result is #t
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit "j exact_end_~a" end-label)
+         (emit "not_exact_~a:" end-label)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "exact_end_~a:" end-label))]
+      [(integer?)
+       (emit-expr (primcall-operand1 expr) si env)
+       ; Only fixnums are integers (low 2 bits must be 00)
+       (emit "andi a1,a0,0b11")
+       (let ([is-fixnum (unique-label "int_is_fixnum")]
+             [end-label (unique-label "int_end")])
+         (emit "beqz a1,~a" is-fixnum)
+         (emit "li a0, ~a" (immediate-rep #f))
+         (emit "j ~a" end-label)
+         (emit-label is-fixnum)
+         (emit "li a0, ~a" (immediate-rep #t))
+         (emit-label end-label))]
+      [(numerator)
+       (emit-expr (primcall-operand1 expr) si env)
+       ; Check if fixnum (low 2 bits are 00)
+       (emit "andi a1,a0,0b11")
+       (let ([is-fixnum (unique-label "num_fixnum")]
+             [done (unique-label "num_done")])
+         (emit "beqz a1,~a" done)
+         ; Is ratnum: clear tag and load first word (numerator)
+         (emit "li a2,~a" (bitwise-not (constant ratnum-tag)))
+         (emit "and a0,a0,a2")
+         (emit "ld a0,(a0)")
+         (emit-label done))]
+      [(denominator)
+       (emit-expr (primcall-operand1 expr) si env)
+       ; Check if fixnum (low 2 bits are 00)
+       (emit "andi a1,a0,0b11")
+       (let ([is-fixnum (unique-label "den_fixnum")]
+             [done (unique-label "den_done")])
+         (emit "beqz a1,~a" done)
+         ; Is ratnum: clear tag and load second word (denominator)
+         (emit "li a2,~a" (bitwise-not (constant ratnum-tag)))
+         (emit "and a0,a0,a2")
+         (emit "ld a0,~a(a0)" (constant wordsize))
+         (emit "j ~a" done)
+         (emit-label done)
+         ; If fixnum, return 1 as fixnum
+         (emit "li a0,~a" (immediate-rep 1)))]
       [(integer->char)
        (emit-expr (primcall-operand1 expr) si env)
        (emit "slli a0,a0,~a" (- (constant char-shift) (constant fixnum-shift)))
@@ -540,6 +637,68 @@
          (emit "  lbu a0, (s4)")              ; // "load byte unsigned"
          (emit "  slli a0,a0,~a" (constant char-shift));  // "byte->char position"
          (emit "  ori a0,a0,~a" (constant char-tag)))];   // "add char tag"
+
+      [(/)
+       ; Division with GCD reduction and sign normalization
+       (emit-expr (primcall-operand1 expr) si env)          ; dividend in a0
+       (emit "mv s4,a0")                                     ; s4 = dividend (fixnum)
+       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env) ; divisor in a0
+       (emit "mv s5,a0")                                     ; s5 = divisor (fixnum)
+       (emit "srai a0,a0,~a" (constant fixnum-shift))       ; divisor as int
+       (emit "srai a1,s4,~a" (constant fixnum-shift))       ; dividend as int
+       (emit "div a2,a1,a0")                                 ; a2 = quotient
+       (emit "mul a3,a2,a0")                                 ; a3 = quotient * divisor
+       (emit "sub a3,a1,a3")                                 ; a3 = remainder
+       (emit "beqz a3,div_exact")                            ; if remainder == 0, exact path
+       ; Inexact path: create ratnum with GCD reduction
+       ; Sign normalization: move sign to numerator
+       (emit "mv a0,s5")                                     ; a0 = divisor
+       (emit "bgez a0,norm_done")                            ; if non-negative, skip normalization
+       ; Divisor is negative: negate both numerator and denominator
+       (emit "neg s4,s4")                                    ; s4 = -s4 (negate numerator)
+       (emit "neg s5,s5")                                    ; s5 = -s5 (negate denominator)
+       (emit "norm_done:")
+       ; GCD reduction: compute GCD(|numerator|, |denominator|) and reduce
+       (emit "srai a0,s4,~a" (constant fixnum-shift))       ; a0 = numerator as int
+       (emit "srai a1,s5,~a" (constant fixnum-shift))       ; a1 = denominator as int
+       ; Make both positive for GCD computation
+       (emit "bgez a0,abs_num_done")
+       (emit "neg a0,a0")
+       (emit "abs_num_done:")
+       (emit "bgez a1,abs_den_done")
+       (emit "neg a1,a1")
+       (emit "abs_den_done:")
+       ; GCD loop: a0 = a, a1 = b
+       (emit "beqz a1,gcd_done")
+       (emit "gcd_loop:")
+       (emit "beqz a1,gcd_done")
+       (emit "mv a2,a0")                                     ; a2 = a
+       (emit "mv a0,a1")                                     ; a0 = b
+       (emit "div a3,a2,a1")                                 ; a3 = a / b
+       (emit "mul a3,a3,a1")                                 ; a3 = (a/b)*b
+       (emit "sub a1,a2,a3")                                 ; a1 = a % b
+       (emit "j gcd_loop")
+       (emit "gcd_done:")
+       ; a0 now contains GCD
+       ; Reduce numerator and denominator by GCD
+       (emit "srai a1,s4,~a" (constant fixnum-shift))       ; a1 = original numerator as int
+       (emit "div a1,a1,a0")                                 ; a1 = numerator / GCD
+       (emit "slli a1,a1,~a" (constant fixnum-shift))       ; a1 = reduced numerator as fixnum
+       (emit "sd a1,(~a)" (constant heap-register))          ; store reduced numerator
+       (emit "srai a2,s5,~a" (constant fixnum-shift))       ; a2 = original denominator as int
+       (emit "bgez a2,abs_final_done")
+       (emit "neg a2,a2")
+       (emit "abs_final_done:")
+       (emit "div a2,a2,a0")                                 ; a2 = abs(denom) / GCD
+       (emit "slli a2,a2,~a" (constant fixnum-shift))       ; a2 = reduced denominator as fixnum
+       (emit "sd a2,~a(~a)" (constant wordsize) (constant heap-register)) ; store reduced denominator
+       (emit "ori a0,~a,~a" (constant heap-register) (constant ratnum-tag)) ; tag
+       (emit "addi ~a,~a,~a" (constant heap-register) (constant heap-register) (* 2 (constant wordsize)))
+       (emit "j div_done")
+       (emit "div_exact:")
+       ; Exact path: return quotient as fixnum
+       (emit "slli a0,a2,~a" (constant fixnum-shift))
+       (emit "div_done:")]
 
       [(quotient)
        (emit-expr (primcall-operand1 expr) si env)           ; dividend in a0 (fixnum)
