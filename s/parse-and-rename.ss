@@ -43,11 +43,25 @@
   (check-equal? (Expr* '((+ 1 2)) primitives)
                 '((primcall + '1 '2))))
 
-(define (lambda-body expr* env) (match expr*
-  [`((define ,k* ,x*) __1 ,body* ___)
-    (Letrec* k* x* body* env)]
-  [`(,body* __1)
-    `(begin ,@(Expr* body* env))]))
+(define (desugar-define-forms expr*)
+  (map (lambda (expr)
+         (match expr
+           [`(define (,name ,params ___) ,body* __1)
+            `(define ,name (lambda ,params ,@body*))]
+           [`(define ,name ,value)
+            `(define ,name ,value)]
+           [else expr]))
+       expr*))
+
+(define (lambda-body expr* env)
+  (let ([desugared (desugar-define-forms expr*)])
+    (match desugared
+      [`((define ,k* ,x*) __1 ,body* ___)
+        (list (Letrec* k* x* body* env))]  ; Returns list for splicing
+      [`(,body* __1)
+        (Expr* body* env)])))
+
+
 
 (define (make-begin expr* env)
   (if (null? (cdr expr*))
@@ -253,7 +267,7 @@
              ,@(Expr* body* (extend-env* env x* ux*))))]
       [`(lambda (,x* ___) ,body* __1)
         (let ([ux* (map unique-variable x*)])
-          `(lambda ,ux* ,@(Expr* body* (extend-env* env x* ux*))))]
+          `(lambda ,ux* ,@(lambda-body body* (extend-env* env x* ux*))))]
       [`(if ,test ,conseq)
         `(if ,(Expr test env) ,(Expr conseq env))]
       [`(if ,test ,conseq ,altern)
