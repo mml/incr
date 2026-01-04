@@ -189,14 +189,14 @@
          [env (extend-env* env x* ux*)]
          [e* (Expr* e* env)])
     `(letrec* ,(map list ux* e*)
-       ,@(Expr* body* env))))
+       ,@(lambda-body body* env))))
 
 (define (Letrec x* e* body* env)
   (let* ([ux* (map unique-variable x*)]
          [env (extend-env* env x* ux*)]
          [e* (Expr* e* env)])
     `(letrec ,(map list ux* e*)
-       ,@(Expr* body* env))))
+       ,@(lambda-body body* env))))
 
 (module+ test ;Letrec
   (check-match
@@ -215,11 +215,11 @@
 ; TODO: this should only be renaming variables, not rewriting let*
 (define (Let* binding* body* env)
   (match binding*
-    ['() `(let () ,@(Expr* body* env))]
+    ['() `(let () ,@(lambda-body body* env))]
     [`([,x ,e])
       (let ([ux (unique-variable x)])
         `(let ([,ux ,(Expr e env)])
-           ,@(Expr* body* (extend-env env x ux))))]
+           ,@(lambda-body body* (extend-env env x ux))))]
     [`([,x ,e] ,binding* __1)
       (let ([ux (unique-variable x)])
         `(let ([,ux ,(Expr e env)])
@@ -264,7 +264,7 @@
       [`(let ([,(? symbol? x*) ,e*] ___) ,body* __1)
         (let ([ux* (map unique-variable x*)])
           `(let ,(map list ux* (Expr* e* env))
-             ,@(Expr* body* (extend-env* env x* ux*))))]
+             ,@(lambda-body body* (extend-env* env x* ux*))))]
       [`(lambda (,x* ___) ,body* __1)
         (let ([ux* (map unique-variable x*)])
           `(lambda ,ux* ,@(lambda-body body* (extend-env* env x* ux*))))]
