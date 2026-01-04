@@ -44,4 +44,20 @@
            (define x 20)
            x))
         "20")
+
+      ; Thunk
+      (test-case
+        ((lambda ()
+           (define (x) 10)
+           (x)))
+        "10")
+
+      ; Shadowing with calls
+      (test-case
+        ((lambda ()
+           (define (f x) (* 100 x))
+           (define (g x) (f (f x)))
+           (define (f x) (* 20 x))
+           (g 1)))
+        "400")
       )))
