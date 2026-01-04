@@ -90,5 +90,66 @@
       (test-case (bitwise-arithmetic-shift -65536 -17) "-1")
       (test-case (bitwise-arithmetic-shift -65536 -30) "-1")
       (test-case (bitwise-arithmetic-shift -65536 -32) "-1")
+
+      ;; quotient
+      (test-case (quotient 10 3) "3")
+      (test-case (quotient 10 5) "2")
+      (test-case (quotient 7 7) "1")
+      (test-case (quotient 5 10) "0")
+      (test-case (quotient -10 3) "-3")
+      (test-case (quotient -10 5) "-2")
+      (test-case (quotient -7 7) "-1")
+      (test-case (quotient 10 -3) "-3")
+      (test-case (quotient 10 -5) "-2")
+      (test-case (quotient -10 -3) "3")
+      (test-case (quotient -10 -5) "2")
+      (test-case (quotient 42 1) "42")
+      (test-case (quotient -42 1) "-42")
+      (test-case (quotient (quotient 100 5) 2) "10")
+
+      ; From tspl4: https://www.scheme.com/tspl4/objects.html
+      (test-case (quotient 45 6) "7")
+
+      ;; remainder
+      (test-case (remainder 10 3) "1")
+      (test-case (remainder 10 5) "0")
+      (test-case (remainder 7 7) "0")
+      (test-case (remainder 5 10) "5")
+      (test-case (remainder -10 3) "-1")
+      (test-case (remainder -10 5) "0")
+      (test-case (remainder -7 3) "-1")
+      (test-case (remainder 10 -3) "1")
+      (test-case (remainder 10 -5) "0")
+      (test-case (remainder -10 -3) "-1")
+      (test-case (remainder -10 -5) "0")
+      (test-case (= 10 (+ (* (quotient 10 3) 3) (remainder 10 3))) "#t")
+      (test-case (= -10 (+ (* (quotient -10 3) 3) (remainder -10 3))) "#t")
+      (test-case (= 10 (+ (* (quotient 10 -3) -3) (remainder 10 -3))) "#t")
+      (test-case (= -10 (+ (* (quotient -10 -3) -3) (remainder -10 -3))) "#t")
+
+      ; From tspl4: https://www.scheme.com/tspl4/objects.html
+      (test-case (remainder 16 4) "0")
+      (test-case (remainder 5 2) "1")
+      (test-case (remainder -17 -9) "-8")
+
+      ;; modulo
+      (test-case (modulo 10 3) "1")
+      (test-case (modulo 10 5) "0")
+      (test-case (modulo 7 7) "0")
+      (test-case (modulo -10 3) "2")
+      (test-case (modulo -7 3) "2")
+      (test-case (modulo -10 5) "0")
+      (test-case (modulo 10 -3) "-2")
+      (test-case (modulo 7 -3) "-2")
+      (test-case (modulo -10 -3) "-1")
+      (test-case (modulo -10 -5) "0")
+      (test-case (= (remainder -10 3) (modulo -10 3)) "#f")
+      (test-case (= (remainder 10 -3) (modulo 10 -3)) "#f")
+      (test-case (= (remainder 10 3) (modulo 10 3)) "#t")
+
+      ; From tspl4: https://www.scheme.com/tspl4/objects.html
+      (test-case (modulo 16 4) "0")
+      (test-case (modulo 5 2) "1")
+      (test-case (modulo -17 -9) "-8")
       )
     ))

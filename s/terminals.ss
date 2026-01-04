@@ -38,7 +38,7 @@
 ; argument.  Unlike set!, they aren't changing the value of a name.  Rather,
 ; they're manipulating heap memory.
 (define binary-primitives
-  '(+ - = * < > cons make-vector vector-ref string-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right eq? eqv?))
+  '(+ - = * < > cons make-vector vector-ref string-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right eq? eqv? quotient remainder modulo))
 
 (define ternary-primitives
   '(vector-set!))

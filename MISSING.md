@@ -9,8 +9,9 @@ This document tracks features from R4RS (Revised^4 Report on the Algorithmic Lan
 - **Bindings**: let, let*, letrec, letrec*, internal definitions
 - **Control flow**: if, cond (with =>), case, begin
 - **Mutation**: set!, vector-set!
-- **Arithmetic**: +, -, *, =, <, >
+- **Arithmetic**: +, -, *, =, <, >, quotient, remainder, modulo
 - **Bitwise operations**: bitwise-arithmetic-shift, bitwise-arithmetic-shift-left, bitwise-arithmetic-shift-right
+- **String operations**: string-ref
 - **List operations**: car, cdr, cadr, cddr, caddr, cons, null?
 - **Type predicates**: zero?, not, null?
 - **Character conversion**: char->integer, integer->char
@@ -21,10 +22,7 @@ This document tracks features from R4RS (Revised^4 Report on the Algorithmic Lan
 
 **Missing primitives**:
 ```scheme
-/                    ; division
-quotient             ; integer division
-remainder            ; remainder
-modulo               ; modulo
+/                    ; exact division (currently have quotient only)
 <=, >=              ; comparison operators
 min, max            ; minimum/maximum
 abs                 ; absolute value
@@ -32,7 +30,7 @@ odd?, even?         ; parity predicates
 positive?, negative? ; sign predicates
 ```
 
-**Rationale**: Programs constantly need division and comparison. Easy to implement with existing fixnum infrastructure.
+**Rationale**: Programs constantly need comparison. Division fundamentals (quotient, remainder, modulo) are now implemented.
 
 **Implementation complexity**: Low (1-2 days)
 

@@ -449,6 +449,49 @@
          (emit "  slli a0,a0,~a" (constant char-shift));  // "byte->char position"
          (emit "  ori a0,a0,~a" (constant char-tag)))];   // "add char tag"
 
+      [(quotient)
+       (emit-expr (primcall-operand1 expr) si env)           ; dividend in a0 (fixnum)
+       (emit "sd a0,~a(sp)" si)                              ; save dividend
+       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)  ; divisor in a0 (fixnum)
+       (emit "ld a1,~a(sp)" si)                              ; load dividend into a1
+       (emit "srai a0,a0,~a" (constant fixnum-shift))        ; divisor fixnum->int
+       (emit "srai a1,a1,~a" (constant fixnum-shift))        ; dividend fixnum->int
+       (emit "div a0,a1,a0")                                 ; a0 = a1 / a0 (dividend_int/divisor_int)
+       (emit "slli a0,a0,~a" (constant fixnum-shift))]       ; int->fixnum
+
+      [(remainder)
+       (emit-expr (primcall-operand1 expr) si env)           ; dividend in a0 (fixnum)
+       (emit "sd a0,~a(sp)" si)                              ; save dividend
+       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)  ; divisor in a0 (fixnum)
+       (emit "ld a1,~a(sp)" si)                              ; load dividend into a1
+       (emit "srai a0,a0,~a" (constant fixnum-shift))        ; divisor fixnum->int
+       (emit "srai a1,a1,~a" (constant fixnum-shift))        ; dividend fixnum->int
+       (emit "rem a0,a1,a0")                                 ; a0 = remainder (int)
+       (emit "slli a0,a0,~a" (constant fixnum-shift))]       ; int->fixnum
+
+      [(modulo)
+       (let ([L-same-sign (unique-label "modulo_same_sign")]
+             [L-end (unique-label "modulo_end")])
+         (emit-expr (primcall-operand1 expr) si env)         ; dividend in a0 (fixnum)
+         (emit "sd a0,~a(sp)" si)                            ; save dividend
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)  ; divisor in a0 (fixnum)
+         (emit "sd a0,~a(sp)" (- si (constant wordsize)))    ; save divisor on stack
+         (emit "mv t2,a0")                                   ; save divisor in t2
+         (emit "ld a1,~a(sp)" si)                            ; load dividend into a1
+         (emit "srai a0,a0,~a" (constant fixnum-shift))      ; divisor fixnum->int
+         (emit "srai a1,a1,~a" (constant fixnum-shift))      ; dividend fixnum->int
+         (emit "rem a0,a1,a0")                               ; a0 = remainder (int)
+         (emit "slli a0,a0,~a" (constant fixnum-shift))      ; remainder int->fixnum
+         ; Check if remainder is 0
+         (emit "beqz a0,~a" L-end)                           ; if rem == 0, done
+         ; Check if signs differ: XOR and test sign bit
+         (emit "xor t1,a0,t2")                               ; XOR remainder and divisor
+         (emit "bgez t1,~a" L-same-sign)                     ; if same sign (>=0), done
+         ; Different signs: add divisor to remainder
+         (emit "add a0,a0,t2")                               ; remainder += divisor
+         (emit-label L-same-sign)
+         (emit-label L-end))]
+
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])
     (emit "/* }}} end ~a */" op )))
 
