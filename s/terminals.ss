@@ -30,7 +30,8 @@
 (define nullary-primitives '(void))
 
 (define unary-primitives
-  '(add1 sub1 integer->char char->integer zero? not null? list? vector? car cdr cadr cddr caddr vector-length))
+  '(add1 sub1 integer->char char->integer zero? not null? list? vector? car cdr cadr cddr caddr vector-length
+    abs odd? even? positive? negative?))
 
 ; TODO: technically set! isn't a primitive (a procedure) because it doesn't
 ; evaluate its first argument.  set! is syntax.  This isn't true of
@@ -38,7 +39,7 @@
 ; argument.  Unlike set!, they aren't changing the value of a name.  Rather,
 ; they're manipulating heap memory.
 (define binary-primitives
-  '(+ - = * < > cons make-vector vector-ref string-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right eq? eqv? quotient remainder modulo))
+  '(+ - = * < > <= >= min max cons make-vector vector-ref string-ref set! bitwise-arithmetic-shift bitwise-arithmetic-shift-left bitwise-arithmetic-shift-right eq? eqv? quotient remainder modulo))
 
 (define ternary-primitives
   '(vector-set!))

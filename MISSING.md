@@ -9,7 +9,8 @@ This document tracks features from R4RS (Revised^4 Report on the Algorithmic Lan
 - **Bindings**: let, let*, letrec, letrec*, internal definitions
 - **Control flow**: if, cond (with =>), case, begin
 - **Mutation**: set!, vector-set!
-- **Arithmetic**: +, -, *, =, <, >, quotient, remainder, modulo
+- **Arithmetic**: +, -, *, =, <, >, <=, >=, min, max, abs, quotient, remainder, modulo
+- **Arithmetic predicates**: zero?, odd?, even?, positive?, negative?
 - **Bitwise operations**: bitwise-arithmetic-shift, bitwise-arithmetic-shift-left, bitwise-arithmetic-shift-right
 - **String operations**: string-ref
 - **List operations**: car, cdr, cadr, cddr, caddr, cons, null?
@@ -18,21 +19,18 @@ This document tracks features from R4RS (Revised^4 Report on the Algorithmic Lan
 
 ## High-Priority Additions
 
-### 1. Complete Numeric Operations
+### 1. Additional Numeric Operations
 
 **Missing primitives**:
 ```scheme
 /                    ; exact division (currently have quotient only)
-<=, >=              ; comparison operators
-min, max            ; minimum/maximum
-abs                 ; absolute value
-odd?, even?         ; parity predicates
-positive?, negative? ; sign predicates
 ```
 
-**Rationale**: Programs constantly need comparison. Division fundamentals (quotient, remainder, modulo) are now implemented.
+**Status**: Comparison operators (<=, >=), min/max, abs, and parity/sign predicates (odd?, even?, positive?, negative?) have been implemented. Only exact division (/) remains from the numeric operations suite.
 
-**Implementation complexity**: Low (1-2 days)
+**Rationale**: The `/` operator provides exact rational division, distinct from `quotient` (truncating division). Implementation would require extending the numeric tower to support rationals.
+
+**Implementation complexity**: Medium (requires rational number representation)
 
 ### 2. Essential List Operations
 
