@@ -462,6 +462,19 @@ grep -r "Unsupported primcall" s/
 This shows which pass is failing and what primitive/feature
 needs implementation.
 
+**Syntax checking for .def files:**
+
+When editing architecture-specific code generators
+(`arm32le.def`, `rv64le.def`), quickly check syntax before
+running tests:
+
+```bash
+racket -e '(require "s/arm32le.def")'
+```
+
+This detects bracket/parenthesis mismatches and other read
+errors without compilation. Exit code 0 means syntax is valid.
+
 ## Design Decisions
 
 ### No Symbol Interning
