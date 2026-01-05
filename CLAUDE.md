@@ -476,6 +476,36 @@ racket -e '(require "s/arm32le.def")'
 This detects bracket/parenthesis mismatches and other read
 errors without compilation. Exit code 0 means syntax is valid.
 
+**GDB debug script synchronization:**
+
+The `debug/setup.gdb` file provides GDB helper functions for
+inspecting Scheme values during debugging. It must stay in
+sync with `c/driver.c`:
+
+**Synchronization checklist:**
+- All value tag constants (FIXNUM, BOOLEAN, CHAR, NULL, VOID,
+  PAIR, VECTOR, STRING, SYMBOL, RATNUM, CLOSURE) defined in
+  both files
+- The dispatch order in `print_ptr` (C) matches the
+  if-else nesting in GDB's `print_ptr` definition
+- All type-specific print functions exist in both files
+  (`print_vector`, `print_string`, `print_symbol`,
+  `print_ratnum`)
+- Bit-shift operations use identical constants for extracting
+  values (e.g., `>> FIXNUM_SHIFT` for fixnum extraction)
+
+**Common drift points:**
+- When adding new data types to runtime (new tag values),
+  both files need updates
+- GDB uses deeply nested if-else while C uses flat
+  if-else-if chains - ensure dispatch order is equivalent
+- GDB helper functions must exactly mirror C function logic
+
+**Example:** When ratnums were added, `c/driver.c` was
+updated with RATNUM_TAG, `print_ratnum()`, and dispatch
+logic, but `setup.gdb` was initially missed. Always update
+both when adding new types.
+
 ## Design Decisions
 
 ### No Symbol Interning
