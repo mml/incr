@@ -50,7 +50,7 @@ set $ADDRESS_MASK = 0xfffffffffffffff8
 set $WORDSIZE = 8
 
 define print_vector
-  set $vector_size = *((long *)$arg0)
+  set $vector_size = $arg0[0]
   printf "#("
   set $ii = 0;
   while $ii < $vector_size
@@ -58,13 +58,14 @@ define print_vector
       printf " "
     end
     $arg0 += $WORDSIZE
-    print_ptr $arg0
+    print_ptr $arg0[$ii]
+    set $ii = $ii + 1
   end
   printf ")"
 end
 
 define print_string
-  set $string_size = *((long *)$arg0)
+  set $string_size = $arg0[0]
   set $string_bytes = (char *)((long *)$arg0 + 1)
   printf "\""
   set $ii = 0
@@ -82,14 +83,14 @@ define print_symbol
 end
 
 define print_ratnum
-  set $ratnum_num = *((long *)$arg0)
-  set $ratnum_den = *(((long *)$arg0) + 1)
+  set $ratnum_num = $arg0[0]
+  set $ratnum_den = $arg0[1]
   printf "%d/%d", $ratnum_num >> $FIXNUM_SHIFT, $ratnum_den >> $FIXNUM_SHIFT
 end
 
 define print_pair
-  set $pair_car = *((long *)$arg0)
-  set $pair_cdr = *(((long *)$arg0) + 1)
+  set $pair_car = $arg0[0]
+  set $pair_cdr = $arg0[1]
   printf "("
   print_ptr $pair_car
   print_cdr $pair_cdr
@@ -132,20 +133,22 @@ define print_ptr
             if (($arg0 & $CHAR_MASK) == $CHAR_TAG)
               printf "#\\%c", ((char) ($arg0 >> $CHAR_SHIFT))
             else
-              if (($arg0 & $PTR_MASK) == $VECTOR_TAG)
-                print_vector ($arg0 & $ADDRESS_MASK)
+              set $arg0_addr = ((long *)($arg0 & $ADDRESS_MASK))
+              set $arg0_tag = $arg0 & $PTR_MASK
+              if ($arg0_tag == $VECTOR_TAG)
+                print_vector $arg0_addr
               else
-                if (($arg0 & $PTR_MASK) == $PAIR_TAG)
-                  print_pair ($arg0 & $ADDRESS_MASK)
+                if ($arg0_tag == $PAIR_TAG)
+                  print_pair $arg0_addr
                 else
-                  if (($arg0 & $PTR_MASK) == $STRING_TAG)
-                    print_string ($arg0 & $ADDRESS_MASK)
+                  if ($arg0_tag == $STRING_TAG)
+                    print_string $arg0_addr
                   else
-                    if (($arg0 & $PTR_MASK) == $SYMBOL_TAG)
-                      print_symbol ($arg0 & $ADDRESS_MASK)
+                    if ($arg0_tag == $SYMBOL_TAG)
+                      print_symbol $arg0_addr
                     else
-                      if (($arg0 & $PTR_MASK) == $RATNUM_TAG)
-                        print_ratnum ($arg0 & $ADDRESS_MASK)
+                      if ($arg0_tag == $RATNUM_TAG)
+                        print_ratnum $arg0_addr
                       else
                         printf "Unknown value 0x%04x\n", $arg0
                       end
