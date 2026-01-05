@@ -678,37 +678,403 @@
      (emit-move32 'eq "r0" (immediate-rep #t))
      (emit-move32 'ne "r0" (immediate-rep #f))]
     [(<)
+     (emit "  @ less-than with ratnum support {{{")
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  cmp r1,r0")
-     (emit-move32 'lt "r0" (immediate-rep #t))
-     (emit-move32 'ge "r0" (immediate-rep #f))]
+     (emit "  mov r2, r0")  ; r2 = operand2
+     (emit "  mov r3, r1")  ; r3 = operand1
+     (with-saved-registers [si ("r4" "r5" "r6" "r7" "r8" "r9")]
+       (let ([both-fixnum (unique-label "lt_both_fixnum")]
+             [both-ratnum (unique-label "lt_both_ratnum")]
+             [check-mixed (unique-label "lt_check_mixed")]
+             [false-ret (unique-label "lt_false")]
+             [true-ret (unique-label "lt_true")]
+             [mixed-fix1-rat2 (unique-label "lt_mixed_fix1_rat2")]
+             [mixed-rat1-fix2 (unique-label "lt_mixed_rat1_fix2")]
+             [done-ret (unique-label "lt_done")])
+         ; Check if both are fixnums (low 2 bits both 00)
+         (emit "  and r4, r2, #0b11")
+         (emit "  and r5, r3, #0b11")
+         (emit "  orr r6, r4, r5")
+         (emit "  cmp r6, #0")
+         (emit "  beq ~a" both-fixnum)
+
+         ; Not both fixnums - check if both are ratnums
+         (emit "  and r4, r2, #0b111")
+         (emit "  and r5, r3, #0b111")
+         (emit "  cmp r4, #~a" (constant ratnum-tag))
+         (emit "  bne ~a" check-mixed)
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" both-ratnum)
+
+         ; Check for mixed types
+         (emit-label check-mixed)
+         ; r3 = operand1, r2 = operand2
+         ; Check: operand1 ratnum, operand2 fixnum?
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" mixed-rat1-fix2)
+         ; Else: operand1 fixnum, operand2 ratnum
+         (emit "  b ~a" mixed-fix1-rat2)
+
+         ; Both are fixnums - direct comparison
+         (emit-label both-fixnum)
+         (emit "  cmp r3, r2")  ; r3 (operand1) < r2 (operand2)?
+         (emit "  blt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Both are ratnums - cross-product comparison
+         ; r3 = ratnum1 (tagged), r2 = ratnum2 (tagged)
+         ; For a/b < c/d: compare a*d < c*b
+         (emit-label both-ratnum)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         (emit "  ldr r6, [r4]")     ; r6 = a (numerator of ratnum1)
+         (emit "  ldr r7, [r4, #~a]" (wordsize)) ; r7 = b (denom of ratnum1)
+         (emit "  ldr r8, [r5]")     ; r8 = c (numerator of ratnum2)
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = d (denom of ratnum2)
+         ; Now compute: a*d vs c*b
+         ; We'll use: multiply r6 (a) by r9 (d) and compare to r8 (c) * r7 (b)
+         ; For now, do r6*r9 and r8*r7 separately and compare
+         (emit "  mul r4, r6, r9")  ; r4 = a*d (left side)
+         (emit "  mul r5, r8, r7")  ; r5 = c*b (right side)
+         (emit "  cmp r4, r5")       ; compare a*d vs c*b
+         (emit "  blt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is fixnum, operand2 is ratnum
+         ; f < n/d ⟺ f*d < n
+         (emit-label mixed-fix1-rat2)
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         ; r3 is fixnum (operand1), need to extract it
+         (emit "  asr r6, r3, #2")   ; r6 = fixnum value of r3
+         (emit "  ldr r8, [r5]")     ; r8 = numerator of ratnum
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r4, r6, r9")   ; r4 = f*d
+         (emit "  cmp r4, r8")       ; compare f*d vs n
+         (emit "  blt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is ratnum, operand2 is fixnum
+         ; n/d < f ⟺ n < f*d
+         (emit-label mixed-rat1-fix2)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         ; r2 is fixnum (operand2), need to extract it
+         (emit "  asr r7, r2, #2")   ; r7 = fixnum value of r2
+         (emit "  ldr r6, [r4]")     ; r6 = numerator of ratnum
+         (emit "  ldr r9, [r4, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r5, r7, r9")   ; r5 = f*d
+         (emit "  cmp r6, r5")       ; compare n vs f*d
+         (emit "  blt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         (emit-label false-ret)
+         (emit-move32 'always "r0" (immediate-rep #f))
+         (emit "  b ~a" done-ret)
+
+         (emit-label true-ret)
+         (emit-move32 'always "r0" (immediate-rep #t))
+
+         (emit-label done-ret)
+         (emit "  @ less-than with ratnum support }}}")))]
     [(>)
+     (emit "  @ greater-than with ratnum support {{{")
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  cmp r0,r1")
-     (emit-move32 'lt "r0" (immediate-rep #t))
-     (emit-move32 'ge "r0" (immediate-rep #f))]
+     (emit "  mov r2, r0")  ; r2 = operand2
+     (emit "  mov r3, r1")  ; r3 = operand1
+     (with-saved-registers [si ("r4" "r5" "r6" "r7" "r8" "r9")]
+       (let ([both-fixnum (unique-label "gt_both_fixnum")]
+             [both-ratnum (unique-label "gt_both_ratnum")]
+             [check-mixed (unique-label "gt_check_mixed")]
+             [false-ret (unique-label "gt_false")]
+             [true-ret (unique-label "gt_true")]
+             [mixed-fix1-rat2 (unique-label "gt_mixed_fix1_rat2")]
+             [mixed-rat1-fix2 (unique-label "gt_mixed_rat1_fix2")]
+             [done-ret (unique-label "gt_done")])
+         ; Check if both are fixnums (low 2 bits both 00)
+         (emit "  and r4, r2, #0b11")
+         (emit "  and r5, r3, #0b11")
+         (emit "  orr r6, r4, r5")
+         (emit "  cmp r6, #0")
+         (emit "  beq ~a" both-fixnum)
+
+         ; Not both fixnums - check if both are ratnums
+         (emit "  and r4, r2, #0b111")
+         (emit "  and r5, r3, #0b111")
+         (emit "  cmp r4, #~a" (constant ratnum-tag))
+         (emit "  bne ~a" check-mixed)
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" both-ratnum)
+
+         ; Check for mixed types
+         (emit-label check-mixed)
+         ; r3 = operand1, r2 = operand2
+         ; Check: operand1 ratnum, operand2 fixnum?
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" mixed-rat1-fix2)
+         ; Else: operand1 fixnum, operand2 ratnum
+         (emit "  b ~a" mixed-fix1-rat2)
+
+         ; Both are fixnums - direct comparison
+         (emit-label both-fixnum)
+         (emit "  cmp r3, r2")  ; r3 (operand1) > r2 (operand2)?
+         (emit "  bgt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Both are ratnums - cross-product comparison
+         ; r3 = ratnum1 (tagged), r2 = ratnum2 (tagged)
+         ; For a/b > c/d: compare a*d > c*b
+         (emit-label both-ratnum)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         (emit "  ldr r6, [r4]")     ; r6 = a (numerator of ratnum1)
+         (emit "  ldr r7, [r4, #~a]" (wordsize)) ; r7 = b (denom of ratnum1)
+         (emit "  ldr r8, [r5]")     ; r8 = c (numerator of ratnum2)
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = d (denom of ratnum2)
+         ; Now compute: a*d vs c*b
+         (emit "  mul r4, r6, r9")  ; r4 = a*d (left side)
+         (emit "  mul r5, r8, r7")  ; r5 = c*b (right side)
+         (emit "  cmp r4, r5")       ; compare a*d vs c*b
+         (emit "  bgt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is fixnum, operand2 is ratnum
+         ; f > n/d ⟺ f*d > n
+         (emit-label mixed-fix1-rat2)
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         ; r3 is fixnum (operand1), need to extract it
+         (emit "  asr r6, r3, #2")   ; r6 = fixnum value of r3
+         (emit "  ldr r8, [r5]")     ; r8 = numerator of ratnum
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r4, r6, r9")   ; r4 = f*d
+         (emit "  cmp r4, r8")       ; compare f*d vs n
+         (emit "  bgt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is ratnum, operand2 is fixnum
+         ; n/d > f ⟺ n > f*d
+         (emit-label mixed-rat1-fix2)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         ; r2 is fixnum (operand2), need to extract it
+         (emit "  asr r7, r2, #2")   ; r7 = fixnum value of r2
+         (emit "  ldr r6, [r4]")     ; r6 = numerator of ratnum
+         (emit "  ldr r9, [r4, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r5, r7, r9")   ; r5 = f*d
+         (emit "  cmp r6, r5")       ; compare n vs f*d
+         (emit "  bgt ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         (emit-label false-ret)
+         (emit-move32 'always "r0" (immediate-rep #f))
+         (emit "  b ~a" done-ret)
+
+         (emit-label true-ret)
+         (emit-move32 'always "r0" (immediate-rep #t))
+
+         (emit-label done-ret)
+         (emit "  @ greater-than with ratnum support }}}")))]
     [(<=)
+     (emit "  @ less-equal with ratnum support {{{")
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  cmp r1,r0")
-     (emit-move32 'le "r0" (immediate-rep #t))
-     (emit-move32 'gt "r0" (immediate-rep #f))]
+     (emit "  mov r2, r0")  ; r2 = operand2
+     (emit "  mov r3, r1")  ; r3 = operand1
+     (with-saved-registers [si ("r4" "r5" "r6" "r7" "r8" "r9")]
+       (let ([both-fixnum (unique-label "le_both_fixnum")]
+             [both-ratnum (unique-label "le_both_ratnum")]
+             [check-mixed (unique-label "le_check_mixed")]
+             [false-ret (unique-label "le_false")]
+             [true-ret (unique-label "le_true")]
+             [mixed-fix1-rat2 (unique-label "le_mixed_fix1_rat2")]
+             [mixed-rat1-fix2 (unique-label "le_mixed_rat1_fix2")]
+             [done-ret (unique-label "le_done")])
+         ; Check if both are fixnums (low 2 bits both 00)
+         (emit "  and r4, r2, #0b11")
+         (emit "  and r5, r3, #0b11")
+         (emit "  orr r6, r4, r5")
+         (emit "  cmp r6, #0")
+         (emit "  beq ~a" both-fixnum)
+
+         ; Not both fixnums - check if both are ratnums
+         (emit "  and r4, r2, #0b111")
+         (emit "  and r5, r3, #0b111")
+         (emit "  cmp r4, #~a" (constant ratnum-tag))
+         (emit "  bne ~a" check-mixed)
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" both-ratnum)
+
+         ; Check for mixed types
+         (emit-label check-mixed)
+         ; r3 = operand1, r2 = operand2
+         ; Check: operand1 ratnum, operand2 fixnum?
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" mixed-rat1-fix2)
+         ; Else: operand1 fixnum, operand2 ratnum
+         (emit "  b ~a" mixed-fix1-rat2)
+
+         ; Both are fixnums - direct comparison
+         (emit-label both-fixnum)
+         (emit "  cmp r3, r2")  ; r3 (operand1) <= r2 (operand2)?
+         (emit "  ble ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Both are ratnums - cross-product comparison
+         ; r3 = ratnum1 (tagged), r2 = ratnum2 (tagged)
+         ; For a/b <= c/d: compare a*d <= c*b
+         (emit-label both-ratnum)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         (emit "  ldr r6, [r4]")     ; r6 = a (numerator of ratnum1)
+         (emit "  ldr r7, [r4, #~a]" (wordsize)) ; r7 = b (denom of ratnum1)
+         (emit "  ldr r8, [r5]")     ; r8 = c (numerator of ratnum2)
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = d (denom of ratnum2)
+         ; Now compute: a*d vs c*b
+         (emit "  mul r4, r6, r9")  ; r4 = a*d (left side)
+         (emit "  mul r5, r8, r7")  ; r5 = c*b (right side)
+         (emit "  cmp r4, r5")       ; compare a*d vs c*b
+         (emit "  ble ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is fixnum, operand2 is ratnum
+         ; f <= n/d ⟺ f*d <= n
+         (emit-label mixed-fix1-rat2)
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         ; r3 is fixnum (operand1), need to extract it
+         (emit "  asr r6, r3, #2")   ; r6 = fixnum value of r3
+         (emit "  ldr r8, [r5]")     ; r8 = numerator of ratnum
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r4, r6, r9")   ; r4 = f*d
+         (emit "  cmp r4, r8")       ; compare f*d vs n
+         (emit "  ble ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is ratnum, operand2 is fixnum
+         ; n/d <= f ⟺ n <= f*d
+         (emit-label mixed-rat1-fix2)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         ; r2 is fixnum (operand2), need to extract it
+         (emit "  asr r7, r2, #2")   ; r7 = fixnum value of r2
+         (emit "  ldr r6, [r4]")     ; r6 = numerator of ratnum
+         (emit "  ldr r9, [r4, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r5, r7, r9")   ; r5 = f*d
+         (emit "  cmp r6, r5")       ; compare n vs f*d
+         (emit "  ble ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         (emit-label false-ret)
+         (emit-move32 'always "r0" (immediate-rep #f))
+         (emit "  b ~a" done-ret)
+
+         (emit-label true-ret)
+         (emit-move32 'always "r0" (immediate-rep #t))
+
+         (emit-label done-ret)
+         (emit "  @ less-equal with ratnum support }}}")))]
     [(>=)
+     (emit "  @ greater-equal with ratnum support {{{")
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env)
      (emit "  ldr r1, [sp,#~a]" si)
-     (emit "  cmp r0,r1")
-     (emit-move32 'le "r0" (immediate-rep #t))
-     (emit-move32 'gt "r0" (immediate-rep #f))]
+     (emit "  mov r2, r0")  ; r2 = operand2
+     (emit "  mov r3, r1")  ; r3 = operand1
+     (with-saved-registers [si ("r4" "r5" "r6" "r7" "r8" "r9")]
+       (let ([both-fixnum (unique-label "ge_both_fixnum")]
+             [both-ratnum (unique-label "ge_both_ratnum")]
+             [check-mixed (unique-label "ge_check_mixed")]
+             [false-ret (unique-label "ge_false")]
+             [true-ret (unique-label "ge_true")]
+             [mixed-fix1-rat2 (unique-label "ge_mixed_fix1_rat2")]
+             [mixed-rat1-fix2 (unique-label "ge_mixed_rat1_fix2")]
+             [done-ret (unique-label "ge_done")])
+         ; Check if both are fixnums (low 2 bits both 00)
+         (emit "  and r4, r2, #0b11")
+         (emit "  and r5, r3, #0b11")
+         (emit "  orr r6, r4, r5")
+         (emit "  cmp r6, #0")
+         (emit "  beq ~a" both-fixnum)
+
+         ; Not both fixnums - check if both are ratnums
+         (emit "  and r4, r2, #0b111")
+         (emit "  and r5, r3, #0b111")
+         (emit "  cmp r4, #~a" (constant ratnum-tag))
+         (emit "  bne ~a" check-mixed)
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" both-ratnum)
+
+         ; Check for mixed types
+         (emit-label check-mixed)
+         ; r3 = operand1, r2 = operand2
+         ; Check: operand1 ratnum, operand2 fixnum?
+         (emit "  cmp r5, #~a" (constant ratnum-tag))
+         (emit "  beq ~a" mixed-rat1-fix2)
+         ; Else: operand1 fixnum, operand2 ratnum
+         (emit "  b ~a" mixed-fix1-rat2)
+
+         ; Both are fixnums - direct comparison
+         (emit-label both-fixnum)
+         (emit "  cmp r3, r2")  ; r3 (operand1) >= r2 (operand2)?
+         (emit "  bge ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Both are ratnums - cross-product comparison
+         ; r3 = ratnum1 (tagged), r2 = ratnum2 (tagged)
+         ; For a/b >= c/d: compare a*d >= c*b
+         (emit-label both-ratnum)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         (emit "  ldr r6, [r4]")     ; r6 = a (numerator of ratnum1)
+         (emit "  ldr r7, [r4, #~a]" (wordsize)) ; r7 = b (denom of ratnum1)
+         (emit "  ldr r8, [r5]")     ; r8 = c (numerator of ratnum2)
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = d (denom of ratnum2)
+         ; Now compute: a*d vs c*b
+         (emit "  mul r4, r6, r9")  ; r4 = a*d (left side)
+         (emit "  mul r5, r8, r7")  ; r5 = c*b (right side)
+         (emit "  cmp r4, r5")       ; compare a*d vs c*b
+         (emit "  bge ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is fixnum, operand2 is ratnum
+         ; f >= n/d ⟺ f*d >= n
+         (emit-label mixed-fix1-rat2)
+         (emit "  BIC r5, r2, #~a" (constant ratnum-tag))  ; r5 = addr of ratnum2
+         ; r3 is fixnum (operand1), need to extract it
+         (emit "  asr r6, r3, #2")   ; r6 = fixnum value of r3
+         (emit "  ldr r8, [r5]")     ; r8 = numerator of ratnum
+         (emit "  ldr r9, [r5, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r4, r6, r9")   ; r4 = f*d
+         (emit "  cmp r4, r8")       ; compare f*d vs n
+         (emit "  bge ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         ; Mixed: operand1 is ratnum, operand2 is fixnum
+         ; n/d >= f ⟺ n >= f*d
+         (emit-label mixed-rat1-fix2)
+         (emit "  BIC r4, r3, #~a" (constant ratnum-tag))  ; r4 = addr of ratnum1
+         ; r2 is fixnum (operand2), need to extract it
+         (emit "  asr r7, r2, #2")   ; r7 = fixnum value of r2
+         (emit "  ldr r6, [r4]")     ; r6 = numerator of ratnum
+         (emit "  ldr r9, [r4, #~a]" (wordsize)) ; r9 = denom of ratnum
+         (emit "  mul r5, r7, r9")   ; r5 = f*d
+         (emit "  cmp r6, r5")       ; compare n vs f*d
+         (emit "  bge ~a" true-ret)
+         (emit "  b ~a" false-ret)
+
+         (emit-label false-ret)
+         (emit-move32 'always "r0" (immediate-rep #f))
+         (emit "  b ~a" done-ret)
+
+         (emit-label true-ret)
+         (emit-move32 'always "r0" (immediate-rep #t))
+
+         (emit-label done-ret)
+         (emit "  @ greater-equal with ratnum support }}}")))]
     [(min)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  str r0, [sp,#~a]" si)

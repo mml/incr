@@ -183,6 +183,210 @@
         (denominator -7)
         "1"))
 
+    (test-cases "Comparison with less-than (<)"
+      ; Basic ratnum to ratnum: 1/4 < 1/2
+      (test-case
+        (< 1/4 1/2)
+        "#t")
+
+      ; Basic ratnum to ratnum: 1/2 < 1/4 (false)
+      (test-case
+        (< 1/2 1/4)
+        "#f")
+
+      ; Different denominators: 1/3 < 1/2
+      (test-case
+        (< 1/3 1/2)
+        "#t")
+
+      ; Cross-product comparison: 2/3 < 3/4 (8/12 < 9/12)
+      (test-case
+        (< 2/3 3/4)
+        "#t")
+
+      ; Negative ratnum < zero
+      (test-case
+        (< -1/2 0)
+        "#t")
+
+      ; Zero < positive ratnum
+      (test-case
+        (< 0 1/2)
+        "#t")
+
+      ; Ratnum < fixnum
+      (test-case
+        (< 1/2 1)
+        "#t")
+
+      ; Fixnum < ratnum (false)
+      (test-case
+        (< 1 1/2)
+        "#f")
+
+      ; Both negative: -1 < -1/2
+      (test-case
+        (< -1 -1/2)
+        "#t")
+
+      ; Equal ratnums (not less than)
+      (test-case
+        (< 1/2 1/2)
+        "#f"))
+
+    (test-cases "Comparison with greater-equal (>=)"
+      ; Basic ratnum to ratnum: 1/4 >= 1/2 (inverse of <)
+      (test-case
+        (>= 1/4 1/2)
+        "#f")
+
+      ; Basic ratnum to ratnum: 1/2 >= 1/4
+      (test-case
+        (>= 1/2 1/4)
+        "#t")
+
+      ; Different denominators: 1/3 >= 1/2
+      (test-case
+        (>= 1/3 1/2)
+        "#f")
+
+      ; Cross-product comparison: 2/3 >= 3/4
+      (test-case
+        (>= 2/3 3/4)
+        "#f")
+
+      ; Negative ratnum >= zero (false)
+      (test-case
+        (>= -1/2 0)
+        "#f")
+
+      ; Zero >= positive ratnum (false)
+      (test-case
+        (>= 0 1/2)
+        "#f")
+
+      ; Ratnum >= fixnum (false)
+      (test-case
+        (>= 1/2 1)
+        "#f")
+
+      ; Fixnum >= ratnum
+      (test-case
+        (>= 1 1/2)
+        "#t")
+
+      ; Both negative: -1 >= -1/2 (false)
+      (test-case
+        (>= -1 -1/2)
+        "#f")
+
+      ; Equal ratnums (equal counts as >=)
+      (test-case
+        (>= 1/2 1/2)
+        "#t"))
+
+    (test-cases "Comparison with greater-than (>)"
+      ; Basic ratnum to ratnum: 1/4 > 1/2 (false)
+      (test-case
+        (> 1/4 1/2)
+        "#f")
+
+      ; Basic ratnum to ratnum: 1/2 > 1/4 (true)
+      (test-case
+        (> 1/2 1/4)
+        "#t")
+
+      ; Different denominators: 1/3 > 1/2 (false)
+      (test-case
+        (> 1/3 1/2)
+        "#f")
+
+      ; Cross-product comparison: 2/3 > 3/4 (false)
+      (test-case
+        (> 2/3 3/4)
+        "#f")
+
+      ; Negative ratnum > zero (false)
+      (test-case
+        (> -1/2 0)
+        "#f")
+
+      ; Zero > positive ratnum (false)
+      (test-case
+        (> 0 1/2)
+        "#f")
+
+      ; Ratnum > fixnum (false)
+      (test-case
+        (> 1/2 1)
+        "#f")
+
+      ; Fixnum > ratnum (true)
+      (test-case
+        (> 1 1/2)
+        "#t")
+
+      ; Both negative: -1 > -1/2 (false)
+      (test-case
+        (> -1 -1/2)
+        "#f")
+
+      ; Equal ratnums (not greater than)
+      (test-case
+        (> 1/2 1/2)
+        "#f"))
+
+    (test-cases "Comparison with less-equal (<=)"
+      ; Basic ratnum to ratnum: 1/4 <= 1/2 (true)
+      (test-case
+        (<= 1/4 1/2)
+        "#t")
+
+      ; Basic ratnum to ratnum: 1/2 <= 1/4 (false)
+      (test-case
+        (<= 1/2 1/4)
+        "#f")
+
+      ; Different denominators: 1/3 <= 1/2 (true)
+      (test-case
+        (<= 1/3 1/2)
+        "#t")
+
+      ; Cross-product comparison: 2/3 <= 3/4 (true)
+      (test-case
+        (<= 2/3 3/4)
+        "#t")
+
+      ; Negative ratnum <= zero (true)
+      (test-case
+        (<= -1/2 0)
+        "#t")
+
+      ; Zero <= positive ratnum (true)
+      (test-case
+        (<= 0 1/2)
+        "#t")
+
+      ; Ratnum <= fixnum (true)
+      (test-case
+        (<= 1/2 1)
+        "#t")
+
+      ; Fixnum <= ratnum (false)
+      (test-case
+        (<= 1 1/2)
+        "#f")
+
+      ; Both negative: -1 <= -1/2 (true)
+      (test-case
+        (<= -1 -1/2)
+        "#t")
+
+      ; Equal ratnums (equal counts as <=)
+      (test-case
+        (<= 1/2 1/2)
+        "#t"))
+
     #;(test-cases "Fixnum arithmetic with division"
       ; Chain of divisions
       (test-case

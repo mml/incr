@@ -4,33 +4,53 @@ This document tracks features from R4RS (Revised^4 Report on the Algorithmic Lan
 
 ## Currently Implemented ✓
 
-- **Data types**: Fixnums, booleans, characters, pairs, vectors, strings (as constants)
+- **Data types**: Fixnums, booleans, characters, pairs, vectors, strings (as constants), ratnums (rational numbers)
 - **Functions**: Lambda, closures, tail call optimization
 - **Bindings**: let, let*, letrec, letrec*, internal definitions
 - **Control flow**: if, cond (with =>), case, begin
 - **Mutation**: set!, vector-set!
-- **Arithmetic**: +, -, *, =, <, >, <=, >=, min, max, abs, quotient, remainder, modulo
+- **Arithmetic**: +, -, *, =, <, >, <=, >=, min, max, abs, quotient, remainder, modulo, / (exact division with ratnums)
 - **Arithmetic predicates**: zero?, odd?, even?, positive?, negative?
 - **Bitwise operations**: bitwise-arithmetic-shift, bitwise-arithmetic-shift-left, bitwise-arithmetic-shift-right
 - **String operations**: string-ref
 - **List operations**: car, cdr, cadr, cddr, caddr, cons, null?
-- **Type predicates**: zero?, not, null?
+- **Ratnum operations**: make-ratnum, numerator, denominator, rational?, number?, exact?, integer? (work with ratnums)
+- **Type predicates**: zero?, not, null?, rational?, number?, exact?, integer?
 - **Character conversion**: char->integer, integer->char
 
 ## High-Priority Additions
 
-### 1. Additional Numeric Operations
+### 1. Ratnum Arithmetic (Partially Implemented)
 
-**Missing primitives**:
+**Implemented**:
+- `/` exact division operator with automatic GCD reduction to canonical form
+- Ratnum literals: `2/3`, `-5/7`, etc.
+- Numeric equality `=` with proper fixnum/ratnum handling
+- Predicates: `rational?`, `number?`, `exact?`, `integer?`
+- Accessors: `numerator`, `denominator`
+
+**Recently Implemented**:
+- All four comparison operators with ratnum support:
+  - `<` : a/b < c/d ⟺ a*d < c*b
+  - `>` : a/b > c/d ⟺ a*d > c*b
+  - `<=`: a/b <= c/d ⟺ a*d <= c*b
+  - `>=`: a/b >= c/d ⟺ a*d >= c*b
+  - All handle mixed fixnum/ratnum operands correctly
+
+**Still missing**:
 ```scheme
-/                    ; exact division (currently have quotient only)
+; Arithmetic with ratnums
+(+ 1/2 1/3)          ; should return 5/6
+(- 3/4 1/8)          ; should return 5/8
+(* 2/3 3/4)          ; should return 1/2
+(/ 1/2 2/3)          ; should return 3/4
 ```
 
-**Status**: Comparison operators (<=, >=), min/max, abs, and parity/sign predicates (odd?, even?, positive?, negative?) have been implemented. Only exact division (/) remains from the numeric operations suite.
+**Status**: Basic ratnum infrastructure complete (literals, storage,
+equality, and all comparison operators: <, >, <=, >=). Arithmetic
+operations (+, -, *, /) with ratnum operands still need implementation.
 
-**Rationale**: The `/` operator provides exact rational division, distinct from `quotient` (truncating division). Implementation would require extending the numeric tower to support rationals.
-
-**Implementation complexity**: Medium (requires rational number representation)
+**Implementation complexity**: Medium (needs type dispatch for each operation, GCD reduction in results)
 
 ### 2. Essential List Operations
 
@@ -187,19 +207,24 @@ load                ; load and execute file
 
 ### 13. Extended Numeric Tower
 
-```scheme
-; Rational numbers
-numerator, denominator, rationalize
+**Rationals - Partially Implemented**:
+- ✓ Ratnum heap objects with proper tagging
+- ✓ Division operator `/` creating normalized ratnums
+- ✓ `numerator` and `denominator` accessors
+- ✓ Equality comparison `=` with fixnum/ratnum dispatch
+- ✓ Type predicates: `rational?`, `number?`, `exact?`, `integer?`
+- Still missing: Arithmetic ops (+, -, *, /), comparison ops (<, >, <=, >=), `rationalize`
 
-; Floating-point
+**Floating-point - Not Implemented**:
+```scheme
 exact->inexact, inexact->exact
 floor, ceiling, truncate, round
 sin, cos, tan, exp, log, sqrt
 ```
 
-**Rationale**: Significant complexity; would require implementing new numeric representations.
+**Rationale**: Floating-point requires different representation (IEEE 754). Rationals (now partially done) are simpler and higher priority.
 
-**Implementation complexity**: Very High
+**Implementation complexity**: Very High (floats), Medium (complete ratnum arithmetic)
 
 ## Recommended Implementation Order
 
@@ -224,9 +249,21 @@ sin, cos, tan, exp, log, sqrt
 12. eval/load (#12)
 13. Extended numeric tower (#13)
 
-## Notes
+## Progress Notes
+
+**Phase 1 Status**:
+- Item #1 (Numeric operations):
+  ✓ Basic ratnum infrastructure (/ division, literals, equality)
+  ✓ All comparison operators (<, >, <=, >=) with ratnum support
+  - Still need: Ratnum arithmetic (+, -, *, /)
+- Item #3 (Type predicates): Partial (rational?, number?, exact?, integer? implemented)
+  - Still need: pair?, symbol?, string?, boolean?, char?, procedure?, vector?
+- Items #2 and #4: Not yet started
+
+## General Notes
 
 - The compiler already has sophisticated closure conversion, tail call optimization, and proper mutation handling via boxing
 - The tagging scheme (2-bit tags for immediates, 3-bit tags for heap objects) is well-designed for type predicates
 - Many of these features can be implemented incrementally without disrupting existing functionality
 - Focus on features that unlock practical programming before advanced metaprogramming features
+- **RISC-V Implementation Note**: When implementing primitives, consult rv64le.md for architecture-specific code generation gotchas (comment syntax, wordsize-aware heap advancement, tag clearing patterns)
