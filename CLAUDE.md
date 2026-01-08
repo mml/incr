@@ -362,6 +362,109 @@ To add a compiler transformation in `parse-and-rename.ss`:
      ...)
    ```
 
+### Adding New Special Forms
+
+When adding a new special form (like `quasiquote`, `let`, etc.) that
+the compiler recognizes, multiple passes must be updated.
+
+**Pass-through pattern**: If a pass doesn't process a form, it must
+**explicitly pass it through** unchanged. Otherwise the form will
+cause a match error.
+
+**Example: Adding `quasiquote` support**
+
+Each pass needs a case for the new form:
+
+```scheme
+;; In simplify-conditionals.ss, simplify-binding-forms.ss, etc.:
+(define (Expr expr)
+  (match expr
+    ...
+    [`(quasiquote ,datum) expr]  ; Pass through unchanged
+    ...))
+```
+
+**Passes that typically need updates:**
+- parse-and-rename.ss (process the form)
+- simplify-conditionals.ss (pass through)
+- simplify-binding-forms.ss (pass through)
+- remove-complex-constants.ss (often expands the form)
+- remove-memv.ss (pass through)
+- make-begin-explicit.ss (pass through)
+- uncover-settable.ss (pass through)
+- remove-set.ss (pass through)
+- uncover-free.ss (pass through)
+- collect-code.ss (pass through)
+- identify-tail-calls.ss (pass through)
+
+**Two-stage processing pattern** (used by `quote` and `quasiquote`):
+
+Some forms are **preserved early, expanded late**:
+
+1. **Early passes** (parse-and-rename through collect-code): Preserve
+   form structure, but process subexpressions as needed
+2. **Late passes** (remove-complex-constants): Expand form to runtime
+   construction (cons, append, etc.)
+
+This allows early passes to do variable renaming and analysis while
+deferring complex expansion to later.
+
+**Example:**
+```scheme
+;; parse-and-rename.ss - processes unquoted expressions
+[`(quasiquote ,datum) `(quasiquote ,(Quasiquote datum env))]
+
+;; Middle passes - pass through
+[`(quasiquote ,datum) expr]
+
+;; remove-complex-constants.ss - expands to cons/append
+[`(quasiquote ,datum) (expand-to-cons-chains datum)]
+```
+
+### Reader Transformations
+
+The Racket reader automatically transforms certain syntax before the
+compiler sees it:
+
+| User writes | Reader produces |
+|-------------|-----------------|
+| `` `(a ,b) `` | `(quasiquote (a (unquote b)))` |
+| `'(a b)` | `(quote (a b))` |
+| `#(a b)` | `#(a b)` (vector literal) |
+
+**Implication**: Compiler passes work with the expanded forms, not
+the original syntax. When adding features, check what the reader
+produces first:
+
+```scheme
+;; In Racket REPL:
+> (read (open-input-string "`(a ,b)"))
+'(quasiquote (a (unquote b)))
+```
+
+### Internal Identifier Conventions
+
+**Prefix conventions for unshadowable identifiers:**
+
+When the compiler needs to call runtime functions that user code
+shouldn't be able to shadow, use **% prefix**:
+
+```scheme
+;; Good: Internal helper, can't be shadowed
+(funcall %append x y)
+
+;; Bad: User could redefine append
+(funcall append x y)
+```
+
+**Examples of internal identifiers:**
+- `%append` - Used by quasiquote expansion for splicing
+- `%cons`, `%car`, `%cdr` - If runtime type checking is needed
+- Future: `%map`, `%filter`, etc. for standard library internals
+
+These functions are defined in the preamble/standard library in a
+protected namespace.
+
 ### Architecture Quick Reference
 
 | Aspect | ARM32 (32-bit) | RISC-V (64-bit) |
