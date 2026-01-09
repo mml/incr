@@ -579,6 +579,56 @@ racket -e '(require "s/arm32le.def")'
 This detects bracket/parenthesis mismatches and other read
 errors without compilation. Exit code 0 means syntax is valid.
 
+**Remote debugging with GDB (ARM32):**
+
+When tests segfault or produce incorrect output, use GDB with
+qemu for debugging:
+
+1. **Two-terminal interactive workflow (preferred):**
+   ```bash
+   # Terminal 1: Start qemu with gdb server on port 9500
+   cd arm32le/t
+   make xdebug  # or manually: qemu-arm-static -L /usr/arm-linux-gnueabihf -g 9500 run-testname/out/x-test-program
+
+   # Terminal 2: Connect gdb
+   make gdb     # or manually: gdb-multiarch --quiet --tui -x ../../debug/setup.gdb --eval-command='target remote localhost:9500' run-testname/out/x-test-program
+   ```
+
+2. **Non-interactive batch mode (for automation):**
+   ```bash
+   cd arm32le/t
+
+   # Start qemu in background
+   qemu-arm-static -L /usr/arm-linux-gnueabihf -g 9500 run-testname/out/x-test-program &
+   QEMU_PID=$!
+   sleep 1
+
+   # Run gdb batch commands
+   gdb-multiarch --batch \
+     --eval-command='target remote localhost:9500' \
+     --eval-command='continue' \
+     --eval-command='backtrace' \
+     --eval-command='info registers' \
+     run-testname/out/x-test-program
+
+   # Clean up
+   kill $QEMU_PID
+   ```
+
+3. **Check for lingering qemu processes:**
+   ```bash
+   ps aux | grep qemu-arm-static
+   pkill -f "qemu-arm-static.*9500"
+   ```
+
+**Key debugging commands in GDB:**
+- `continue` or `c` - Run until crash/breakpoint
+- `backtrace` or `bt` - Show call stack
+- `info registers` - Show all register values
+- `pp $r0` - Pretty-print Scheme value in register r0 (custom
+  command from setup.gdb)
+- `x/10xw $r8` - Examine 10 words at heap pointer
+
 **GDB debug script synchronization:**
 
 The `debug/setup.gdb` file provides GDB helper functions for
