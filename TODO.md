@@ -25,30 +25,35 @@ Currently, the compiler does not support user-defined variadic procedures (proce
 - No runtime representation for argument lists
 
 ### Preamble/Standard Library
-The compiler has no preamble - no standard Scheme code that gets automatically compiled and linked with user programs.
+A basic preamble system exists but is limited to non-variadic procedures.
 
-**Current state:**
-- All functionality must be either:
-  - Built-in primitives (hard-coded in compiler)
-  - Defined by user in their program
+**Current state (as of 2026-01-09):**
+- Basic preamble system in `lib/preamble.ss`
+- Preamble definitions are prepended to user code before compilation
+- Currently contains: `append`
+- See `preamble.md` for design documentation
 
-**Desired:**
-- A `preamble.ss` or `stdlib.ss` that defines standard procedures
-- Examples of what could be moved to preamble:
+**What works:**
+- Non-variadic procedures can be defined in preamble
+- Examples: `append`, `length`, `map`, `filter`, `reverse`, etc.
+- Users can call these without defining them
+
+**What's still missing:**
+- Variadic procedures cannot be defined in preamble yet
+- Examples that need variadic support:
   - `(vector ...)` - variadic vector constructor
   - `(list ...)` - variadic list constructor
-  - `(caar x)`, `(cadr x)`, etc. - car/cdr combinations
-  - `(map f lst)` - higher-order functions
-  - `(length lst)` - list utilities
+  - `(+ a b c ...)` - multi-arg arithmetic
+  - `(append lst1 lst2 ...)` - multi-list append
 
-**Blockers:**
-- No mechanism to compile and link preamble code
+**Blockers for full stdlib:**
 - Need variadic procedures (see above) for many stdlib functions
-- Need to decide: separate compilation or inline into each program?
+- User-defined variadic procedures still not supported
 
-**Workarounds:**
-- Procedures like `vector` are transformed in `parse-and-rename.ss` into primitives
-- This works but is less flexible than having them as library code
+**Current workarounds:**
+- Some procedures like `vector` are transformed in `parse-and-rename.ss`
+- Binary `append` is now in preamble
+- Variadic operations still require primitives or transformations
 
 ## Impact
 

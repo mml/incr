@@ -232,12 +232,23 @@ Allocated on heap, pointer tagged with low 3 bits:
 | Pair | `#b001` | `[car\|cdr]` (2 words) |
 | Vector | `#b010` | `[size\|elem0\|elem1\|...]` (size+1 words) |
 | String | `#b011` | `[size\|byte0\|byte1\|...]` (size in bytes, 8-byte aligned) |
-| Symbol | `#b100` | `[string-ptr]` (1 word, points to string) |
+| Symbol | `#b111` | `[string-ptr]` (1 word, points to string) |
+| Ratnum | `#b101` | `[numerator\|denominator]` (2 words) |
 | Closure | `#b110` | `[code-ptr\|free0\|free1\|...]` |
 
 **Memory alignment:** All heap allocations are 8-byte aligned.
 The low 3 bits of aligned pointers are always 0, enabling use
 for type tags.
+
+**Tag value constraints:** Pointer tag values must be chosen
+carefully to avoid conflicts with immediate value checks:
+- Fixnum check uses low 2 bits (`val & 0b11 == 0b00`)
+- This check happens BEFORE pointer tag checks in `print_ptr`
+- Therefore, pointer tags with low 2 bits = `00` (like `#b100`)
+  would be misinterpreted as fixnums
+- Available safe pointer tags: `#b001`, `#b010`, `#b011`,
+  `#b101`, `#b110`, `#b111`
+- Tag `#b100` is UNSAFE and must not be used for pointers
 
 **Heap pointer:** Maintained in r8 (ARM32) or s11 (RISC-V),
 points to next free byte.
@@ -476,7 +487,7 @@ protected namespace.
 | **Store** | `str r0, [r1, #offset]` | `sd a0, offset(a1)` |
 | **Add immediate** | `add r0, r1, #imm` | `addi a0, a1, imm` |
 | **Bitwise OR** | `orr r0, r1, #imm` | `ori a0, a1, imm` |
-| **Tag values** | pair=#b001, vector=#b010, string=#b011 | symbol=#b100, closure=#b110 |
+| **Tag values** | pair=#b001, vector=#b010, string=#b011 | symbol=#b111, ratnum=#b101, closure=#b110 |
 
 ### Code Generation Patterns
 
@@ -677,20 +688,25 @@ The `.def` files lack unit tests - only integration tests
 exist in `t/`. This is a known gap (documented in
 `t/TODO.md`).
 
-### Missing Language Infrastructure
+### Language Infrastructure
 
-See `/TODO.md` for major missing features:
+**Preamble system (basic):** A simple preamble system exists
+in `lib/preamble.ss`. Definitions are prepended to user code
+before compilation, making functions like `append` available
+to all programs. See `preamble.md` for design details.
+
+**Still missing (see `/TODO.md`):**
 - **No variadic procedures** - Cannot define user functions
-  with variable arguments
-- **No preamble/standard library** - No way to define
-  standard procedures once and link into all programs
+  with variable arguments (e.g., `(define (list . args) ...)`)
+- **Limited standard library** - Only non-variadic procedures
+  can be defined in the preamble
 
-These limitations mean `vector`, `list`, etc. must be
-either:
+These limitations mean variadic procedures like `list`, `+`
+(multi-arg), etc. must be either:
 - Hard-coded as primitives with code generation
 - Transformed in compiler (e.g., `vector` →
   `make-vector` + `vector-set!`)
-- Manually defined by users in every program
+- Unavailable to users
 
 ## Common Gotchas and Limitations
 
