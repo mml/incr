@@ -41,7 +41,7 @@ set $NULL_VALUE = 0b00111111
 set $PAIR_TAG = 0b001
 set $VECTOR_TAG = 0b010
 set $STRING_TAG = 0b011
-set $SYMBOL_TAG = 0b100
+set $SYMBOL_TAG = 0b111
 set $RATNUM_TAG = 0b101
 set $CLOSURE_TAG = 0b110
 set $PTR_MASK = 0b111
@@ -52,7 +52,7 @@ set $WORDSIZE = 8
 define print_vector
   set $vector_size = $arg0[0]
   printf "#("
-  set $ii = 0;
+  set $ii = 0
   while $ii < $vector_size
     if $ii != 0 && $i != $vector_size
       printf " "
@@ -78,8 +78,14 @@ end
 
 define print_symbol
   set $symbol_str = *((long *)$arg0)
-  printf "'"
-  print_string ($symbol_str & $ADDRESS_MASK)
+  set $str_addr = (long *)($symbol_str & $ADDRESS_MASK)
+  set $string_size = $str_addr[0]
+  set $string_bytes = (char *)($str_addr + 1)
+  set $ii = 0
+  while $ii < $string_size
+    printf "%c", $string_bytes[$ii]
+    set $ii = $ii + 1
+  end
 end
 
 define print_ratnum
@@ -115,40 +121,46 @@ define print_cdr
 end
 
 define print_ptr
-  if $arg0 == $NULL_VALUE
+  set $ptr = (ptr_t)($arg0)
+  if $ptr == $NULL_VALUE
     printf "()"
   else
-    if $arg0 == $FALSE_VALUE
+    if $ptr == $FALSE_VALUE
       printf "#f"
     else
-      if $arg0 == $TRUE_VALUE
+      if $ptr == $TRUE_VALUE
         printf "#t"
       else
-        if $arg0 == $VOID_VALUE
+        if $ptr == $VOID_VALUE
           printf "#<void>"
         else
-          if (($arg0 & $FIXNUM_MASK) == $FIXNUM_TAG)
+          if (($ptr & $FIXNUM_MASK) == $FIXNUM_TAG)
             printf "%d", $arg0 >> $FIXNUM_SHIFT
           else
-            if (($arg0 & $CHAR_MASK) == $CHAR_TAG)
+            if (($ptr & $CHAR_MASK) == $CHAR_TAG)
               printf "#\\%c", ((char) ($arg0 >> $CHAR_SHIFT))
             else
-              set $arg0_addr = ((long *)($arg0 & $ADDRESS_MASK))
-              set $arg0_tag = $arg0 & $PTR_MASK
-              if ($arg0_tag == $VECTOR_TAG)
-                print_vector $arg0_addr
+              set $arg_ptr_addr = ((long *)($arg0 & $ADDRESS_MASK))
+              set $arg_ptr_tag = ($arg0 & $PTR_MASK)
+              printf "ptr_addr = 0x%04x, ptr_tag = %u\n", $arg_ptr_addr, $arg_ptr_tag
+              if (($arg0 & $PTR_MASK) == $VECTOR_TAG)
+                print_vector $arg_ptr_addr
               else
-                if ($arg0_tag == $PAIR_TAG)
-                  print_pair $arg0_addr
+                print "not vector"
+                if ($arg_ptr_tag == $PAIR_TAG)
+                  print_pair $arg_ptr_addr
                 else
-                  if ($arg0_tag == $STRING_TAG)
-                    print_string $arg0_addr
+                  print "not pair"
+                  if ($arg_ptr_tag == $STRING_TAG)
+                    print_string $arg_ptr_addr
                   else
-                    if ($arg0_tag == $SYMBOL_TAG)
-                      print_symbol $arg0_addr
+                    print "not string"
+                    if ($arg_ptr_tag == $SYMBOL_TAG)
+                      print_symbol $arg_ptr_addr
                     else
-                      if ($arg0_tag == $RATNUM_TAG)
-                        print_ratnum $arg0_addr
+                      print "not symbol"
+                      if ($arg_ptr_tag == $RATNUM_TAG)
+                        print_ratnum $arg_ptr_addr
                       else
                         printf "Unknown value 0x%04x\n", $arg0
                       end

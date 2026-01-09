@@ -24,7 +24,7 @@
 #define PAIR_TAG        0b001
 #define VECTOR_TAG      0b010
 #define STRING_TAG      0b011
-#define SYMBOL_TAG      0b100
+#define SYMBOL_TAG      0b111
 #define RATNUM_TAG      0b101
 #define CLOSURE_TAG     0b110
 #define PTR_MASK 0b111
@@ -104,8 +104,12 @@ void print_pair(ptr_t *addr) {
 
 void print_symbol(ptr_t *addr) {
   ptr_t str = addr[0];
-  printf( "\'");
-  print_string((ptr_t *)(str & ADDRESS_MASK));
+  ptr_t *str_addr = (ptr_t *)(str & ADDRESS_MASK);
+  ptr_t size = str_addr[0];
+  char *bytes = (char *) &(str_addr[1]);
+  for (ptr_t i = 0; i < size; i++) {
+    printf("%c", bytes[i]);
+  }
 }
 
 void print_ratnum(ptr_t *addr) {
@@ -140,7 +144,8 @@ void print_ptr(ptr_t val) {
   } else if (val == VOID_VALUE) {
     printf("#<void>");
   } else if ((val & FIXNUM_MASK) == FIXNUM_TAG) {
-    printf("%d", val >> FIXNUM_SHIFT);
+    fprintf(stderr, "%d\n", val >> FIXNUM_SHIFT);
+    printf("%d", (val >> FIXNUM_SHIFT));
   } else if ((val & CHAR_MASK) == CHAR_TAG) {
     char c = val >> CHAR_SHIFT;
     printf("#\\%c", c);

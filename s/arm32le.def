@@ -422,6 +422,7 @@
      (emit "  orr r0,r0,#~a" (constant vector-tag)           (// "tag vector"))
      (emit "  @ make-vector}}}")]
     [(string)
+     (emit "  @ {{{string")
      (emit-move32 "r0" (primcall-operand-count expr))
      (emit "  add r1, r0, #~a" (+ 11 (constant wordsize))       (// "align size to next"))
      (emit "  and r1, r1, #-8"                                  (// "   object boundary"))
@@ -436,18 +437,21 @@
          (emit "  str r3,[r2]")
          (emit "  add r2,r2,#1"))
        (primcall-operands expr))
-     (emit "  orr r0,r0,#~a" (constant string-tag))]
+     (emit "  orr r0,r0,#~a" (constant string-tag))
+     (emit "  @ string}}}")]
     [(string->symbol)
+     (emit "  @ {{{string->symbol")
      (emit-expr (primcall-operand1 expr) si env)    ; evaluate string argument to r0
      (emit "  str r0, [~a]" heap-register)           ; store string pointer at offset 0
-     (emit "  add r0,~a,#~a" heap-register (constant symbol-tag))  ; tag pointer with #b100
-     (emit "  add ~a,~a,#8" heap-register heap-register)]  ; advance heap by 8 bytes
+     (emit "  orr r0,~a,#~a" heap-register (constant symbol-tag))  ; tag pointer with #b100
+     (emit "  add ~a,~a,#8" heap-register heap-register)   ; advance heap by 8 bytes
+     (emit "  @ string->symbol}}}")]
     [(make-ratnum)
      (emit-expr (primcall-operand1 expr) si env)    ; evaluate numerator argument to r0
      (emit "  str r0, [~a]" heap-register)           ; store numerator at offset 0
      (emit-expr (primcall-operand2 expr) (- si (wordsize)) env) ; evaluate denominator
      (emit "  str r0, [~a,#~a]" heap-register (wordsize)) ; store denominator at offset wordsize
-     (emit "  add r0,~a,#~a" heap-register (constant ratnum-tag)) ; tag pointer with #b101
+     (emit "  orr r0,~a,#~a" heap-register (constant ratnum-tag)) ; tag pointer with #b101
      (emit "  add ~a,~a,#~a" heap-register heap-register (* 2 (wordsize)))] ; advance heap by 2 words
     ))
 
