@@ -65,7 +65,7 @@
             `(let ([,t ,(Expr test)])
                (if ,t ,t ,(Cond (cdr clause*)))))]
         [`(,test ,expr)
-          `(if ,test ,expr ,(Cond (cdr clause*)))]
+          `(if ,(Expr test) ,(Expr expr) ,(Cond (cdr clause*)))]
         [`(,test => ,expr)
           (let ([t (tmp)])
             `(let ([,t ,(Expr test)])

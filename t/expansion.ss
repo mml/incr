@@ -17,6 +17,15 @@
       (test-case (or #f #f 3) "3")
       (test-case (or #f #f #f 4) "4")
 
+      ;; Test cond with 'and' in consequent - tests that cond recursively
+      ;; processes test and expr through Expr to expand nested forms
+      (test-case
+        (cond
+          [#f 999]
+          [(and #t #t) 42]
+          [else 0])
+        "42")
+
       (test-case
         (let ([sum (lambda (x y sum)
                      (cond
