@@ -2,6 +2,10 @@
 
 # test-parallel: Run integration tests for both architectures in parallel
 # with 10-minute timeouts and failure reporting
+#
+# Usage:
+#   test-parallel              # Run all tests (default)
+#   test-parallel test1 test2  # Run specific tests (e.g., binprims ratnum)
 
 # Clean up old log files
 rm -f arm32le.stdout arm32le.stderr rv64le.stdout rv64le.stderr
@@ -16,15 +20,32 @@ report_failure() {
     echo "---"
 }
 
-# Start arm32le test
-echo "arm32le started..."
-(timeout 10m make -j20 -C arm32le/s test > arm32le.stdout 2> arm32le.stderr) &
-arm32le_pid=$!
+# Determine test targets
+if [[ $# -eq 0 ]]; then
+    # No arguments: run all tests
+    echo "Running all tests..."
+    # Start arm32le test
+    echo "arm32le started..."
+    (timeout 10m make -j20 -C arm32le/t test > arm32le.stdout 2> arm32le.stderr) &
+    arm32le_pid=$!
 
-# Start rv64le test
-echo "rv64le started..."
-(timeout 10m make -j20 -C rv64le/s test > rv64le.stdout 2> rv64le.stderr) &
-rv64le_pid=$!
+    # Start rv64le test
+    echo "rv64le started..."
+    (timeout 10m make -j20 -C rv64le/t test > rv64le.stdout 2> rv64le.stderr) &
+    rv64le_pid=$!
+else
+    # Arguments provided: run specific tests
+    echo "Running tests: $@"
+    # Start arm32le test
+    echo "arm32le started..."
+    (timeout 10m make -j20 -C arm32le/t "$@" > arm32le.stdout 2> arm32le.stderr) &
+    arm32le_pid=$!
+
+    # Start rv64le test
+    echo "rv64le started..."
+    (timeout 10m make -j20 -C rv64le/t "$@" > rv64le.stdout 2> rv64le.stderr) &
+    rv64le_pid=$!
+fi
 
 # Initialize exit codes
 arm32le_exit=""

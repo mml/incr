@@ -3,6 +3,18 @@
   (require "../s/test-driver.ss")
   (define (runtests)
     (test-cases "Binary primitives"
+      ; and - truth table
+      (test-case (and #f #f) "#f")
+      (test-case (and #f #t) "#f")
+      (test-case (and #t #f) "#f")
+      (test-case (and #t #t) "#t")
+
+      ; or - truth table
+      (test-case (or #f #f) "#f")
+      (test-case (or #f #t) "#t")
+      (test-case (or #t #f) "#t")
+      (test-case (or #t #t) "#t")
+
       ; +
       (test-case (+ 2 2) "4")
       (test-case (+ 0 0) "0")

@@ -90,16 +90,50 @@ Creates architecture workarea with `machine.ss` defining architecture.
 - After changes in `s/`, run unit tests before integration
   tests
 - `./test-parallel` - run integration tests in parallel on both
-  architectures
+  architectures (see **Parallel Testing** below)
 - ARM32le runs faster than RISC-V
 - For specific test:
   `make -C arm32le/t catchall`
 - After a few hours idle: `make realclean` in both architectures
   to ensure fresh compilation
 
+**Parallel Testing:**
+
+The `test-parallel` script runs integration tests on ARM32 and
+RISC-V in parallel with 10-minute timeouts. This is the primary
+way to validate changes across both architectures simultaneously.
+
+Usage:
+```bash
+# Run all integration tests on both architectures in parallel
+./test-parallel
+
+# Run specific tests on both architectures in parallel
+./test-parallel binprims numprims ratnum
+./test-parallel fxop
+```
+
+When to use:
+- **After compiler passes changes:** Run `./test-parallel` to
+  ensure full test suite passes on both architectures
+- **After code generator changes:** Run `./test-parallel` to
+  validate architecture-specific implementations
+- **During iterative development:** Use `make -C arm32le/t
+  specific-test` to test one architecture quickly, then
+  `./test-parallel specific-test` to validate both architectures
+- **Performance verification:** Compares ARM32 vs RISC-V
+  execution time (ARM32 typically faster due to lower overhead)
+
 **Important:** The Makefile dependency `zo: src` ensures
 symlinks are created before compiling. Without this,
 `make` fails on fresh workareas.
+
+**Testing preamble.ss for syntax errors:** Unit tests
+(`make -C arm32le/s unit`) do not load preamble.ss. To test
+preamble changes for syntax errors, run an integration test that
+loads it. Use a simple test file like:
+`make -C arm32le/t literals` - tests basic literal expressions
+and will fail fast if preamble.ss has syntax errors.
 
 ## Compiler Architecture
 

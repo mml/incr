@@ -181,6 +181,46 @@
       ; denominator of negative fixnum
       (test-case
         (denominator -7)
+        "1")
+
+      ; numerator of positive ratnum
+      (test-case
+        (numerator 1/2)
+        "1")
+
+      ; denominator of positive ratnum
+      (test-case
+        (denominator 1/2)
+        "2")
+
+      ; numerator of different positive ratnum
+      (test-case
+        (numerator 3/7)
+        "3")
+
+      ; denominator of different positive ratnum
+      (test-case
+        (denominator 3/7)
+        "7")
+
+      ; numerator of negative ratnum
+      (test-case
+        (numerator -1/3)
+        "-1")
+
+      ; denominator of negative ratnum
+      (test-case
+        (denominator -1/3)
+        "3")
+
+      ; numerator of ratnum that reduces to fixnum
+      (test-case
+        (numerator 6/2)
+        "3")
+
+      ; denominator of ratnum that reduces to fixnum
+      (test-case
+        (denominator 6/2)
         "1"))
 
     (test-cases "Comparison with less-than (<)"

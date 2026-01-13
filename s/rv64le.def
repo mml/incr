@@ -126,8 +126,8 @@
              (- si (constant wordsize))))])))
 
 (define (emit-if test conseq altern si env)
-  (let ([L0 (unique-label)]
-        [L1 (unique-label)])
+  (let ([L0 (unique-label "if_altern")]
+        [L1 (unique-label "if_end")])
     (emit-expr test si env)
     (emit "  li a1, ~a" (immediate-rep #f))
     (emit "  beq a0,a1,~a" L0)
@@ -316,6 +316,18 @@
          (emit "not_ratnum_~a:" end-label)
          (emit "li a0, ~a" (immediate-rep #f))
          (emit "rat_end_~a:" end-label))]
+      [(fixnum?)
+       (let ([L-fixnum (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         ; Check if fixnum (low 2 bits are 00)
+         (emit "andi a1, a0, 0b11")
+         (emit "beqz a1, ~a" L-fixnum)
+         (emit "li a0, ~a" (constant false-value))
+         (emit "j ~a" L-end)
+         (emit-label L-fixnum)
+         (emit "li a0, ~a" (constant true-value))
+         (emit-label L-end))]
       [(number?)
        (emit-expr (primcall-operand1 expr) si env)
        (let ([end-label (unique-label "num_end")])
@@ -380,15 +392,16 @@
        (emit "andi a1,a0,0b11")
        (let ([is-fixnum (unique-label "den_fixnum")]
              [done (unique-label "den_done")])
-         (emit "beqz a1,~a" done)
+         (emit "beqz a1,~a" is-fixnum)
          ; Is ratnum: clear tag and load second word (denominator)
          (emit "li a2,~a" (bitwise-not (constant ratnum-tag)))
          (emit "and a0,a0,a2")
          (emit "ld a0,~a(a0)" (constant wordsize))
          (emit "j ~a" done)
-         (emit-label done)
+         (emit-label is-fixnum)
          ; If fixnum, return 1 as fixnum
-         (emit "li a0,~a" (immediate-rep 1)))]
+         (emit "li a0,~a" (immediate-rep 1))
+         (emit-label done))]
       [(integer->char)
        (emit-expr (primcall-operand1 expr) si env)
        (emit "slli a0,a0,~a" (- (constant char-shift) (constant fixnum-shift)))
@@ -408,59 +421,20 @@
        (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
        (emit "ld a1,~a(sp)" si)
        (emit "sub a0,a1,a0")]
-      [(=)
-       (emit "# numeric equality {{{")
-       (emit-expr (primcall-operand1 expr) si env)
-       (emit "sd a0,~a(sp)" si)
-       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "ld a1,~a(sp)" si)
-       (emit "mv a2, a0")
-       (emit "mv a3, a1")
-       (with-saved-registers [si ("s4" "s5" "s6")]
-         (let ([both-fixnum (unique-label "num_eq_both_fixnum")]
-               [both-ratnum (unique-label "num_eq_both_ratnum")]
-               [check-mixed (unique-label "num_eq_check_mixed")]
-               [false-ret (unique-label "num_eq_false")]
-               [true-ret (unique-label "num_eq_true")]
-               [done-ret (unique-label "num_eq_done")])
-           (emit "andi s4, a2, 0b11")
-           (emit "andi s5, a3, 0b11")
-           (emit "or s6, s4, s5")
-           (emit "beq s6, x0, ~a" both-fixnum)
-
-           (emit "andi s4, a2, ~a" (constant ptr-mask))
-           (emit "andi s5, a3, ~a" (constant ptr-mask))
-           (emit "li s6, ~a" (constant ratnum-tag))
-           (emit "bne s4, s6, ~a" check-mixed)
-           (emit "beq s5, s6, ~a" both-ratnum)
-
-           (emit-label check-mixed)
-           (emit "j ~a" false-ret)
-
-           (emit-label both-fixnum)
-           (emit "beq a2, a3, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           (emit-label both-ratnum)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           (emit "and s5, a2, s6")
-           (emit "ld a3, 0(s4)")
-           (emit "ld a2, 0(s5)")
-           (emit "bne a2, a3, ~a" false-ret)
-           (emit "ld a3, ~a(s4)" (constant wordsize))
-           (emit "ld a2, ~a(s5)" (constant wordsize))
-           (emit "beq a2, a3, ~a" true-ret)
-
-           (emit-label false-ret)
-           (emit "li a0, ~a" (immediate-rep #f))
-           (emit "j ~a" done-ret)
-
-           (emit-label true-ret)
-           (emit "li a0, ~a" (immediate-rep #t))
-
-           (emit-label done-ret)
-           (emit "# numeric equality }}}")))]
+      [(fx=)
+       ; Fixnum-only equality - no type checking (preamble does dispatch)
+       (let ([L-equal (unique-label "fx_operands_equal")]
+             [L-end (unique-label "fx_equality_end")])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sd a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "ld a1,~a(sp)" si)
+         (emit "beq a0, a1, ~a" L-equal)
+         (emit "li a0, ~a" (constant false-value))
+         (emit "j ~a" L-end)
+         (emit-label L-equal)
+         (emit "li a0, ~a" (constant true-value))
+         (emit-label L-end))]
 
       [(eq? eqv?)
        (let ([L-operands-equal (unique-label)]
@@ -475,386 +449,62 @@
          (emit-label L-operands-equal)
          (emit "li a0, ~a" (immediate-rep #t))
          (emit-label L-end))]
-      [(<)
-       (emit "# less-than with ratnum support {{{")
-       (emit-expr (primcall-operand1 expr) si env)
-       (emit "sd a0,~a(sp)" si)
-       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "ld a1,~a(sp)" si)
-       (emit "mv a2, a0")
-       (emit "mv a3, a1")
-       (with-saved-registers [si ("s4" "s5" "s6" "s7" "s8" "s9")]
-         (let ([both-fixnum (unique-label "lt_both_fixnum")]
-               [both-ratnum (unique-label "lt_both_ratnum")]
-               [check-mixed (unique-label "lt_check_mixed")]
-               [mixed-fix1-rat2 (unique-label "lt_mixed_fix1_rat2")]
-               [mixed-rat1-fix2 (unique-label "lt_mixed_rat1_fix2")]
-               [false-ret (unique-label "lt_false")]
-               [true-ret (unique-label "lt_true")]
-               [done-ret (unique-label "lt_done")])
-           ; Check if both are fixnums (low 2 bits both 0)
-           (emit "andi s4, a2, 0b11")
-           (emit "andi s5, a3, 0b11")
-           (emit "or s6, s4, s5")
-           (emit "beq s6, x0, ~a" both-fixnum)
-
-           ; Not both fixnums - check if both are ratnums
-           (emit "andi s4, a2, ~a" (constant ptr-mask))
-           (emit "andi s5, a3, ~a" (constant ptr-mask))
-           (emit "li s6, ~a" (constant ratnum-tag))
-           (emit "bne s4, s6, ~a" check-mixed)
-           (emit "beq s5, s6, ~a" both-ratnum)
-
-           ; Check for mixed types
-           (emit-label check-mixed)
-           ; a3 = operand1, a2 = operand2
-           ; Check: operand1 ratnum, operand2 fixnum?
-           (emit "beq s5, s6, ~a" mixed-rat1-fix2)
-           ; Else: operand1 fixnum, operand2 ratnum
-           (emit "j ~a" mixed-fix1-rat2)
-
-           ; Both are fixnums - direct comparison
-           (emit-label both-fixnum)
-           (emit "blt a3, a2, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Both are ratnums - cross-product comparison
-           ; a3 = ratnum1 (tagged), a2 = ratnum2 (tagged)
-           ; For a/b < c/d: compare a*d < c*b
-           (emit-label both-ratnum)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           (emit "and s5, a2, s6")
-           (emit "ld s7, 0(s4)")
-           (emit "ld s8, ~a(s4)" (constant wordsize))
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           ; Now compute: s7*a5 (a*d) vs a4*s8 (c*b)
-           (emit "mul s6, s7, a5")
-           (emit "mul a6, a4, s8")
-           (emit "blt s6, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is fixnum, operand2 is ratnum
-           ; f < n/d ⟺ f*d < n
-           (emit-label mixed-fix1-rat2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s5, a2, s6")
-           ; a3 is fixnum (operand1), need to extract it
-           (emit "srai s7, a3, 2")
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           (emit "mul s6, s7, a5")
-           (emit "blt s6, a4, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is ratnum, operand2 is fixnum
-           ; n/d < f ⟺ n < f*d
-           (emit-label mixed-rat1-fix2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           ; a2 is fixnum (operand2), need to extract it
-           (emit "srai s8, a2, 2")
-           (emit "ld s7, 0(s4)")
-           (emit "ld a5, ~a(s4)" (constant wordsize))
-           (emit "mul a6, s8, a5")
-           (emit "blt s7, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           (emit-label false-ret)
-           (emit "li a0, ~a" (immediate-rep #f))
-           (emit "j ~a" done-ret)
-
-           (emit-label true-ret)
-           (emit "li a0, ~a" (immediate-rep #t))
-
-           (emit-label done-ret)
-           (emit "# less-than with ratnum support }}}")))]
-      [(>)
-       (emit "# greater-than with ratnum support {{{")
-       (emit-expr (primcall-operand1 expr) si env)
-       (emit "sd a0,~a(sp)" si)
-       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "ld a1,~a(sp)" si)
-       (emit "mv a2, a0")
-       (emit "mv a3, a1")
-       (with-saved-registers [si ("s4" "s5" "s6" "s7" "s8" "s9")]
-         (let ([both-fixnum (unique-label "gt_both_fixnum")]
-               [both-ratnum (unique-label "gt_both_ratnum")]
-               [check-mixed (unique-label "gt_check_mixed")]
-               [mixed-fix1-rat2 (unique-label "gt_mixed_fix1_rat2")]
-               [mixed-rat1-fix2 (unique-label "gt_mixed_rat1_fix2")]
-               [false-ret (unique-label "gt_false")]
-               [true-ret (unique-label "gt_true")]
-               [done-ret (unique-label "gt_done")])
-           ; Check if both are fixnums (low 2 bits both 0)
-           (emit "andi s4, a2, 0b11")
-           (emit "andi s5, a3, 0b11")
-           (emit "or s6, s4, s5")
-           (emit "beq s6, x0, ~a" both-fixnum)
-
-           ; Not both fixnums - check if both are ratnums
-           (emit "andi s4, a2, ~a" (constant ptr-mask))
-           (emit "andi s5, a3, ~a" (constant ptr-mask))
-           (emit "li s6, ~a" (constant ratnum-tag))
-           (emit "bne s4, s6, ~a" check-mixed)
-           (emit "beq s5, s6, ~a" both-ratnum)
-
-           ; Check for mixed types
-           (emit-label check-mixed)
-           ; a3 = operand1, a2 = operand2
-           ; Check: operand1 ratnum, operand2 fixnum?
-           (emit "beq s5, s6, ~a" mixed-rat1-fix2)
-           ; Else: operand1 fixnum, operand2 ratnum
-           (emit "j ~a" mixed-fix1-rat2)
-
-           ; Both are fixnums - direct comparison
-           (emit-label both-fixnum)
-           (emit "bgt a3, a2, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Both are ratnums - cross-product comparison
-           ; a3 = ratnum1 (tagged), a2 = ratnum2 (tagged)
-           ; For a/b > c/d: compare a*d > c*b
-           (emit-label both-ratnum)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           (emit "and s5, a2, s6")
-           (emit "ld s7, 0(s4)")
-           (emit "ld s8, ~a(s4)" (constant wordsize))
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           ; Now compute: s7*a5 (a*d) vs a4*s8 (c*b)
-           (emit "mul s6, s7, a5")
-           (emit "mul a6, a4, s8")
-           (emit "bgt s6, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is fixnum, operand2 is ratnum
-           ; f > n/d ⟺ f*d > n
-           (emit-label mixed-fix1-rat2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s5, a2, s6")
-           ; a3 is fixnum (operand1), need to extract it
-           (emit "srai s7, a3, 2")
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           (emit "mul s6, s7, a5")
-           (emit "bgt s6, a4, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is ratnum, operand2 is fixnum
-           ; n/d > f ⟺ n > f*d
-           (emit-label mixed-rat1-fix2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           ; a2 is fixnum (operand2), need to extract it
-           (emit "srai s8, a2, 2")
-           (emit "ld s7, 0(s4)")
-           (emit "ld a5, ~a(s4)" (constant wordsize))
-           (emit "mul a6, s8, a5")
-           (emit "bgt s7, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           (emit-label false-ret)
-           (emit "li a0, ~a" (immediate-rep #f))
-           (emit "j ~a" done-ret)
-
-           (emit-label true-ret)
-           (emit "li a0, ~a" (immediate-rep #t))
-
-           (emit-label done-ret)
-           (emit "# greater-than with ratnum support }}}")))]
-      [(<=)
-       (emit "# less-equal with ratnum support {{{")
-       (emit-expr (primcall-operand1 expr) si env)
-       (emit "sd a0,~a(sp)" si)
-       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "ld a1,~a(sp)" si)
-       (emit "mv a2, a0")
-       (emit "mv a3, a1")
-       (with-saved-registers [si ("s4" "s5" "s6" "s7" "s8" "s9")]
-         (let ([both-fixnum (unique-label "le_both_fixnum")]
-               [both-ratnum (unique-label "le_both_ratnum")]
-               [check-mixed (unique-label "le_check_mixed")]
-               [mixed-fix1-rat2 (unique-label "le_mixed_fix1_rat2")]
-               [mixed-rat1-fix2 (unique-label "le_mixed_rat1_fix2")]
-               [false-ret (unique-label "le_false")]
-               [true-ret (unique-label "le_true")]
-               [done-ret (unique-label "le_done")])
-           ; Check if both are fixnums (low 2 bits both 0)
-           (emit "andi s4, a2, 0b11")
-           (emit "andi s5, a3, 0b11")
-           (emit "or s6, s4, s5")
-           (emit "beq s6, x0, ~a" both-fixnum)
-
-           ; Not both fixnums - check if both are ratnums
-           (emit "andi s4, a2, ~a" (constant ptr-mask))
-           (emit "andi s5, a3, ~a" (constant ptr-mask))
-           (emit "li s6, ~a" (constant ratnum-tag))
-           (emit "bne s4, s6, ~a" check-mixed)
-           (emit "beq s5, s6, ~a" both-ratnum)
-
-           ; Check for mixed types
-           (emit-label check-mixed)
-           ; a3 = operand1, a2 = operand2
-           ; Check: operand1 ratnum, operand2 fixnum?
-           (emit "beq s5, s6, ~a" mixed-rat1-fix2)
-           ; Else: operand1 fixnum, operand2 ratnum
-           (emit "j ~a" mixed-fix1-rat2)
-
-           ; Both are fixnums - direct comparison
-           (emit-label both-fixnum)
-           (emit "ble a3, a2, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Both are ratnums - cross-product comparison
-           ; a3 = ratnum1 (tagged), a2 = ratnum2 (tagged)
-           ; For a/b <= c/d: compare a*d <= c*b
-           (emit-label both-ratnum)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           (emit "and s5, a2, s6")
-           (emit "ld s7, 0(s4)")
-           (emit "ld s8, ~a(s4)" (constant wordsize))
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           ; Now compute: s7*a5 (a*d) vs a4*s8 (c*b)
-           (emit "mul s6, s7, a5")
-           (emit "mul a6, a4, s8")
-           (emit "ble s6, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is fixnum, operand2 is ratnum
-           ; f <= n/d ⟺ f*d <= n
-           (emit-label mixed-fix1-rat2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s5, a2, s6")
-           ; a3 is fixnum (operand1), need to extract it
-           (emit "srai s7, a3, 2")
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           (emit "mul s6, s7, a5")
-           (emit "ble s6, a4, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is ratnum, operand2 is fixnum
-           ; n/d <= f ⟺ n <= f*d
-           (emit-label mixed-rat1-fix2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           ; a2 is fixnum (operand2), need to extract it
-           (emit "srai s8, a2, 2")
-           (emit "ld s7, 0(s4)")
-           (emit "ld a5, ~a(s4)" (constant wordsize))
-           (emit "mul a6, s8, a5")
-           (emit "ble s7, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           (emit-label false-ret)
-           (emit "li a0, ~a" (immediate-rep #f))
-           (emit "j ~a" done-ret)
-
-           (emit-label true-ret)
-           (emit "li a0, ~a" (immediate-rep #t))
-
-           (emit-label done-ret)
-           (emit "# less-equal with ratnum support }}}")))]
-      [(>=)
-       (emit "# greater-equal with ratnum support {{{")
-       (emit-expr (primcall-operand1 expr) si env)
-       (emit "sd a0,~a(sp)" si)
-       (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
-       (emit "ld a1,~a(sp)" si)
-       (emit "mv a2, a0")
-       (emit "mv a3, a1")
-       (with-saved-registers [si ("s4" "s5" "s6" "s7" "s8" "s9")]
-         (let ([both-fixnum (unique-label "ge_both_fixnum")]
-               [both-ratnum (unique-label "ge_both_ratnum")]
-               [check-mixed (unique-label "ge_check_mixed")]
-               [mixed-fix1-rat2 (unique-label "ge_mixed_fix1_rat2")]
-               [mixed-rat1-fix2 (unique-label "ge_mixed_rat1_fix2")]
-               [false-ret (unique-label "ge_false")]
-               [true-ret (unique-label "ge_true")]
-               [done-ret (unique-label "ge_done")])
-           ; Check if both are fixnums (low 2 bits both 0)
-           (emit "andi s4, a2, 0b11")
-           (emit "andi s5, a3, 0b11")
-           (emit "or s6, s4, s5")
-           (emit "beq s6, x0, ~a" both-fixnum)
-
-           ; Not both fixnums - check if both are ratnums
-           (emit "andi s4, a2, ~a" (constant ptr-mask))
-           (emit "andi s5, a3, ~a" (constant ptr-mask))
-           (emit "li s6, ~a" (constant ratnum-tag))
-           (emit "bne s4, s6, ~a" check-mixed)
-           (emit "beq s5, s6, ~a" both-ratnum)
-
-           ; Check for mixed types
-           (emit-label check-mixed)
-           ; a3 = operand1, a2 = operand2
-           ; Check: operand1 ratnum, operand2 fixnum?
-           (emit "beq s5, s6, ~a" mixed-rat1-fix2)
-           ; Else: operand1 fixnum, operand2 ratnum
-           (emit "j ~a" mixed-fix1-rat2)
-
-           ; Both are fixnums - direct comparison
-           (emit-label both-fixnum)
-           (emit "bge a3, a2, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Both are ratnums - cross-product comparison
-           ; a3 = ratnum1 (tagged), a2 = ratnum2 (tagged)
-           ; For a/b >= c/d: compare a*d >= c*b
-           (emit-label both-ratnum)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           (emit "and s5, a2, s6")
-           (emit "ld s7, 0(s4)")
-           (emit "ld s8, ~a(s4)" (constant wordsize))
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           ; Now compute: s7*a5 (a*d) vs a4*s8 (c*b)
-           (emit "mul s6, s7, a5")
-           (emit "mul a6, a4, s8")
-           (emit "bge s6, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is fixnum, operand2 is ratnum
-           ; f >= n/d ⟺ f*d >= n
-           (emit-label mixed-fix1-rat2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s5, a2, s6")
-           ; a3 is fixnum (operand1), need to extract it
-           (emit "srai s7, a3, 2")
-           (emit "ld a4, 0(s5)")
-           (emit "ld a5, ~a(s5)" (constant wordsize))
-           (emit "mul s6, s7, a5")
-           (emit "bge s6, a4, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           ; Mixed: operand1 is ratnum, operand2 is fixnum
-           ; n/d >= f ⟺ n >= f*d
-           (emit-label mixed-rat1-fix2)
-           (emit "li s6, ~a" (bitwise-not (constant ptr-mask)))
-           (emit "and s4, a3, s6")
-           ; a2 is fixnum (operand2), need to extract it
-           (emit "srai s8, a2, 2")
-           (emit "ld s7, 0(s4)")
-           (emit "ld a5, ~a(s4)" (constant wordsize))
-           (emit "mul a6, s8, a5")
-           (emit "bge s7, a6, ~a" true-ret)
-           (emit "j ~a" false-ret)
-
-           (emit-label false-ret)
-           (emit "li a0, ~a" (immediate-rep #f))
-           (emit "j ~a" done-ret)
-
-           (emit-label true-ret)
-           (emit "li a0, ~a" (immediate-rep #t))
-
-           (emit-label done-ret)
-           (emit "# greater-equal with ratnum support }}}")))]
+      [(fx<)
+       ; Fixnum-only less-than - no type checking (preamble does dispatch)
+       (let ([L-less (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sd a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "ld a1,~a(sp)" si)
+         (emit "blt a1, a0, ~a" L-less)
+         (emit "li a0, ~a" (constant false-value))
+         (emit "j ~a" L-end)
+         (emit-label L-less)
+         (emit "li a0, ~a" (constant true-value))
+         (emit-label L-end))]
+      [(fx>)
+       ; Fixnum-only greater-than - no type checking (preamble does dispatch)
+       (let ([L-greater (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sd a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "ld a1,~a(sp)" si)
+         (emit "bgt a1, a0, ~a" L-greater)
+         (emit "li a0, ~a" (constant false-value))
+         (emit "j ~a" L-end)
+         (emit-label L-greater)
+         (emit "li a0, ~a" (constant true-value))
+         (emit-label L-end))]
+      [(fx<=)
+       ; Fixnum-only less-than-or-equal - no type checking (preamble does dispatch)
+       (let ([L-le (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sd a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "ld a1,~a(sp)" si)
+         (emit "ble a1, a0, ~a" L-le)
+         (emit "li a0, ~a" (constant false-value))
+         (emit "j ~a" L-end)
+         (emit-label L-le)
+         (emit "li a0, ~a" (constant true-value))
+         (emit-label L-end))]
+      [(fx>=)
+       ; Fixnum-only greater-than-or-equal - no type checking (preamble does dispatch)
+       (let ([L-ge (unique-label)]
+             [L-end (unique-label)])
+         (emit-expr (primcall-operand1 expr) si env)
+         (emit "sd a0,~a(sp)" si)
+         (emit-expr (primcall-operand2 expr) (- si (constant wordsize)) env)
+         (emit "ld a1,~a(sp)" si)
+         (emit "bge a1, a0, ~a" L-ge)
+         (emit "li a0, ~a" (constant false-value))
+         (emit "j ~a" L-end)
+         (emit-label L-ge)
+         (emit "li a0, ~a" (constant true-value))
+         (emit-label L-end))]
       [(min)
        (let ([done (unique-label "min_done")])
          (emit-expr (primcall-operand1 expr) si env)
