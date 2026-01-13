@@ -12,48 +12,37 @@
 ;;           ratnum/ratnum -> compare numerators and denominators
 ;;           mixed types   -> #f (different types are unequal)
 (define (= x y)
-  (if (fixnum? x)
-      (if (fixnum? y)
-          (fx= x y)
-          #f)
-      (if (fixnum? y)
-          #f
-          (and (= (numerator x) (numerator y))
-               (= (denominator x) (denominator y))))))
+  (cond
+    [(fixnum? x) (and (fixnum? y) (fx= x y))]
+    [(fixnum? y) #f]
+    [else (and (= (numerator x) (numerator y))
+               (= (denominator x) (denominator y)))]))
 
 ;; < : Less-than comparison
 ;; Cross-multiplication for ratnum comparisons:
 ;;   a/b < c/d  ⟺  a*d < c*b
 (define (< x y)
-  (if (fixnum? x)
-      (if (fixnum? y)
-          (fx< x y)
-          ; x < c/d  ⟺  x*d < c
-          (< (* (denominator y) x) (numerator y)))
-      ; a/b < y
-      (if (fixnum? y)
-          ; a/b < y  ⟺  a < b*y
-          (< (numerator x) (* (denominator x) y))
-          ; a/b < c/d  ⟺  a*d < c*b
-          (< (* (numerator x) (denominator y))
-             (* (numerator y) (denominator x))))))
+  (cond
+    [(fixnum? x)
+     (if (fixnum? y)
+         (fx< x y)
+         (< (* (denominator y) x) (numerator y)))]
+    [(fixnum? y) (< (numerator x) (* (denominator x) y))]
+    [else (< (* (numerator x) (denominator y))
+             (* (numerator y) (denominator x)))]))
 
 ;; > : Greater-than comparison
 ;; Cross-multiplication for ratnum comparisons:
 ;;   a/b > c/d  ⟺  a*d > c*b
 (define (> x y)
-  (if (fixnum? x)
-      (if (fixnum? y)
-          (fx> x y)
-          ; x > c/d  ⟺  x*d > c
-          (> (* (denominator y) x) (numerator y)))
-      ; a/b > y
-      (if (fixnum? y)
-          ; a/b > y  ⟺  a > b*y
-          (> (numerator x) (* (denominator x) y))
-          ; a/b > c/d  ⟺  a*d > c*b
-          (> (* (numerator x) (denominator y))
-             (* (numerator y) (denominator x))))))
+  (cond
+    [(fixnum? x)
+     (if (fixnum? y)
+         (fx> x y)
+         (> (* (denominator y) x) (numerator y)))]
+    [(fixnum? y) (> (numerator x) (* (denominator x) y))]
+    [else (> (* (numerator x) (denominator y))
+             (* (numerator y) (denominator x)))]))
 
 ;; <= : Less-than-or-equal comparison (defined as not(>))
 (define (<= x y)
