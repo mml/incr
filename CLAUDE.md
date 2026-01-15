@@ -407,6 +407,76 @@ To add a compiler transformation in `parse-and-rename.ss`:
      ...)
    ```
 
+### Compiler Pass Design Patterns
+
+Successful passes in the compiler follow consistent patterns for clarity
+and maintainability:
+
+**Naming conventions:**
+- Top-level entry point: typically `Expr` (e.g., `(define (Expr expr env) ...)`)
+- Helper transformers: named after the AST node they process:
+  - `Expr` - transforms expressions
+  - `Expr*` - transforms expression lists
+  - `Code` - transforms code blocks
+  - `Clause*` - transforms clause lists
+  - Use capitalized names for transformers (e.g., `List`, `Vector`)
+
+**Single-pass transformation with multiple values:**
+
+Passes should transform the entire tree in one pass, returning both the
+transformed expression and accumulated information using Scheme's
+multiple-value construct:
+
+```scheme
+(define (pass-entry expr)
+  (let-values ([(transformed env-or-info) (Expr expr (initial-env))])
+    transformed))
+
+(define (Expr expr env)
+  (match expr
+    [`(quote ,c) (values expr (set))]
+    [`(let ([,x* ,e*] ___) ,body)
+     (let-values ([(e* free*) (Expr* e*)])
+       (let-values ([(body free) (Expr body)])
+         (values `(let ,(map list x* e*) ,body)
+                 (set-union* (cons free free*)))))]))
+
+(define (Expr* expr*)
+  (let loop ([expr* expr*] [rexpr* '()] [rinfo* '()])
+    (if (null? expr*)
+      (values (reverse rexpr*) (reverse rinfo*))
+      (let-values ([(rexpr rinfo) (Expr (car expr*))])
+        (loop (cdr expr*) (cons rexpr rexpr*) (cons rinfo rinfo*))))))
+```
+
+**Benefits of this pattern:**
+- Single pass through the tree (efficient)
+- No mutable state with `set!` (functional, easier to reason about)
+- Environment/information passed as parameters (clear data flow)
+- Information accumulated on return (like `uncover-free.ss` returns free
+  variable sets, `parse-and-rename.ss` returns transformed expressions)
+
+**Anti-pattern to avoid:**
+Multiple passes with mutable state:
+```scheme
+; BAD: Two passes + mutable state
+(define (bad-pass expr)
+  (let ([collected '()])
+    (define (collect-walk expr)
+      (set! collected (cons datum collected))  ; Mutation!
+      ...)
+    (collect-walk expr)  ; First pass
+    (replace-walk expr)  ; Second pass
+    ...))
+```
+
+**Real examples:**
+- `uncover-free.ss` - Single pass returning transformed expr + free variable
+  sets
+- `parse-and-rename.ss` - Single pass with environment threading
+- `collect-code.ss` - Single pass with multiple-value returns for (expr,
+  labels)
+
 ### Adding New Special Forms
 
 When adding a new special form (like `quasiquote`, `let`, etc.) that
@@ -623,6 +693,37 @@ racket -e '(require "s/arm32le.def")'
 
 This detects bracket/parenthesis mismatches and other read
 errors without compilation. Exit code 0 means syntax is valid.
+
+**Tracing Compiler Passes:**
+
+When a compiler pass isn't transforming expressions as expected,
+enable tracing to see what the pass is actually doing:
+
+1. **Add tracing to the pass:** Insert `(require racket/trace)` at
+   the top, then add a trace directive to the main entry point:
+   ```scheme
+   (trace-define (remove-complex-constants expr) ; changed from (define...
+     (match expr ...))
+   ```
+
+2. **Run the failing test:** Execute the test that fails:
+   ```bash
+   make -C arm32le/t test-name
+   ```
+
+3. **Examine output files:** Check both `.out` and `.err` files:
+   - `.out` - Contains the traced output (before-and-after values)
+   - `.err` - Contains error messages and stack traces
+
+4. **Analyze the transformation:** Look at what the pass returned:
+   - Does it match expected output?
+   - Are subexpressions being walked correctly?
+   - Are all forms (quotes, let, primcall, etc.) handled?
+
+**Example:** When `remove-complex-constants` wasn't collecting
+constants from code definitions in labels, tracing showed that
+the main function only walked the `body`, not the `labels`. The
+solution was to add a case to also walk code definitions.
 
 **Remote debugging with GDB (ARM32):**
 
