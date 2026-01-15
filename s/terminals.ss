@@ -30,7 +30,7 @@
 (define nullary-primitives '(void))
 
 (define unary-primitives
-  '(add1 sub1 integer->char char->integer zero? not null? list? vector? car cdr cadr cddr caddr vector-length
+  '(add1 sub1 integer->char char->integer zero? not null? list? vector? car cdr vector-length
     abs odd? even? positive? negative? rational? number? exact? integer? numerator denominator fixnum?))
 
 ; TODO: technically set! isn't a primitive (a procedure) because it doesn't

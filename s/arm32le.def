@@ -208,7 +208,7 @@
         [else
           (case (car x)
             [(add1 sub1 integer->char char->integer zero? not null? list? vector? + - = * < /
-              cons car cdr cadr cddr caddr make-vector vector-ref string-ref vector-set! vector-length
+              cons car cdr make-vector vector-ref string-ref vector-set! vector-length
               make-ratnum numerator denominator rational? exact? integer?)
              #t]
             [else #f])])
@@ -721,19 +721,6 @@
     [(cdr)
      (emit-expr (primcall-operand1 expr) si env)
      (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))]
-    [(cadr)
-     (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
-     (emit "  ldr r0,[r0,#~a]" (- (constant pair-tag)))]
-    [(cddr)
-     (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))]
-    [(caddr)
-     (emit-expr (primcall-operand1 expr) si env)
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
-     (emit "  ldr r0,[r0,#~a]" (- (wordsize) (constant pair-tag)))
-     (emit "  ldr r0,[r0,#~a]" (- (constant pair-tag)))]
     [(numerator)
      (emit-expr (primcall-operand1 expr) si env)
      ; Check if fixnum (low 2 bits are 00)

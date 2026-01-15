@@ -51,3 +51,20 @@
 ;; >= : Greater-than-or-equal comparison (defined as not(<))
 (define (>= x y)
   (not (< x y)))
+
+;;; Compound car/cdr Accessors
+
+;; cadr : Get second element of a list
+;; Equivalent to (car (cdr x))
+(define (cadr x)
+  (car (cdr x)))
+
+;; cddr : Get the rest of the list starting from the third element
+;; Equivalent to (cdr (cdr x))
+(define (cddr x)
+  (cdr (cdr x)))
+
+;; caddr : Get third element of a list
+;; Equivalent to (car (cdr (cdr x)))
+(define (caddr x)
+  (car (cdr (cdr x))))
