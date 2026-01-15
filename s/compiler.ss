@@ -38,17 +38,16 @@
          [combined (append preamble prog-list)]
          [prog (normalize-program combined)]
          [labels (identify-tail-calls
-                   (collect-code
-                     (uncover-free
-                       (remove-set!
-                         (uncover-settable
-                           (remove-complex-constants
+                   (remove-complex-constants
+                     (collect-code
+                       (uncover-free
+                         (remove-set!
+                           (uncover-settable
                              (make-begin-explicit
                                (remove-memv
                                  (simplify-binding-forms
                                    (simplify-conditionals
-                                     (parse-and-rename prog)))))))))))
-          ])
+                                     (parse-and-rename prog)))))))))))])
     (emit-prologue)
     (emit-Labels labels)
     (emit-epilogue)))

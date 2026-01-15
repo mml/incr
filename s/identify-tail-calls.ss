@@ -16,7 +16,9 @@
 
 (define (Code code) (match code
   [`(code (,x* ___) (,y* ___) ,body)
-    `(code (,@x*) (,@y*) ,(Expr body #t))]))
+    `(code (,@x*) (,@y*) ,(Expr body #t))]
+  [`(datum) code]  ; Datum labels pass through unchanged
+  ))
 
 (define (Expr* expr* tail?)
   (if (null? expr*)
@@ -36,6 +38,7 @@
 
 (define (Expr expr tail?) (match expr
   [`(quote ,c) expr]
+  [(? string? s) expr]
   [(? primitive? pr) pr]
   [(? variable? x) x]
   [`(constant-init ,_ ,_) expr]
@@ -61,4 +64,4 @@
     `(if ,(Expr test #f) ,(Expr conseq tail?) ,(Expr altern tail?))]
   [`(primcall ,pr ,e* ___)
     `(primcall ,pr ,@(Expr* e* #f))]
-  ))
+  [_ expr]))  ; Pass through unmatched forms

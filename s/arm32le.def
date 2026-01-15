@@ -4,7 +4,7 @@
 (provide emit-Labels)
 (provide emit-epilogue)
 (require "compile-shared.ss")
-(provide emit-label emit-Code emit-scheme-entry emit-bss unique-label)
+(provide emit-label emit-datum-label emit-Code emit-scheme-entry emit-bss unique-label)
 
 (define-constant wordsize-shift 2)
 (define-constant wordsize 4)
@@ -316,6 +316,13 @@
 
 (define (emit-label l)
   (emit "~a:" l))
+
+(define (emit-datum-label l)
+  ; Emit a datum label with storage in .data section
+  (emit ".section .data")
+  (emit "~a:" l)
+  (emit ".word 0")
+  (emit ".section .text"))
 
 (define (emit-Closure label free* si env)
   (let* ([nfree (length free*)]               ; number of free variables
@@ -904,6 +911,20 @@
        (emit-label L-end)
        (emit "  @ modulo}}}"))
      ]
+    [(constant-ref)
+     (let ([label (primcall-operand1 expr)])
+       (let ([actual-label (lookup label env)])
+         (emit "  movw r1, #:lower16:~a" actual-label (// "load label address"))
+         (emit "  movt r1, #:upper16:~a" actual-label)
+         (emit "  ldr r0, [r1]" (// "load value from label"))))]
+    [(constant-init)
+     (let ([label (primcall-operand1 expr)]
+           [value-expr (primcall-operand2 expr)])
+       (let ([actual-label (lookup label env)])
+         (emit-expr value-expr si env)
+         (emit "  movw r1, #:lower16:~a" actual-label (// "load label address"))
+         (emit "  movt r1, #:upper16:~a" actual-label)
+         (emit "  str r0, [r1]" (// "store r0 to label"))))]
     [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])))
 
 (define (emit-begin exprs si env)

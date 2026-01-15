@@ -477,6 +477,166 @@ Multiple passes with mutable state:
 - `collect-code.ss` - Single pass with multiple-value returns for (expr,
   labels)
 
+### Idiomatic Racket Patterns for Compiler Passes
+
+These patterns make passes more concise and idiomatic:
+
+**1. The `=>` idiom for association list lookups**
+
+Instead of storing the result and checking it:
+```scheme
+; AVOID: Double lookup or unnecessary let binding
+(let ([entry (env-lookup e datum)])
+  (if entry
+    (use (cdr entry))
+    (add-new)))
+```
+
+Use the `=>` idiom to pass the truthy result directly:
+```scheme
+; PREFER: Single lookup, direct use
+(cond
+  [(env-lookup e datum)
+   => (lambda (entry)
+        (use (cdr entry)))]
+  [else (add-new)])
+```
+
+The `=>` passes the truthy result (the assoc pair) to the lambda, avoiding a second lookup.
+
+**2. Extract common lookup-or-add patterns**
+
+When you frequently need "lookup existing or create new", wrap it in a helper:
+```scheme
+(define (lookup-or-add env key)
+  (cond
+    [(env-lookup env key)
+     => (lambda (entry) (values env (cdr entry)))]
+    [else
+     (env-add env key)]))
+```
+
+This centralizes the pattern and makes call sites clearer.
+
+**3. Unconditional `begin` with splicing for optional lists**
+
+Instead of conditionally wrapping with `begin`:
+```scheme
+; AVOID: Conditional begin wrapper
+(if (null? init-code)
+  body
+  `(begin ,@init-code ,body))
+```
+
+Use unconditional `begin` - splicing handles the empty case:
+```scheme
+; PREFER: Let splicing handle it
+`(begin ,@init-code ,body)
+```
+
+When `init-code` is empty, `(begin ,@'() ,body)` splices to `(begin ,body)`, which is semantically equivalent to `body` in most contexts.
+
+**4. Pattern guards over body conditionals**
+
+Move predicate checks into match patterns when possible:
+```scheme
+; AVOID: Conditional in match body
+[`(quote ,datum)
+ (if (complex-datum? datum)
+   (intern-it datum)
+   (values expr e))]
+
+; PREFER: Pattern guard
+[`(quote ,(? complex-datum? datum))
+ (intern-it datum)]
+```
+
+Pattern guards fail the match early if the predicate fails, making control flow clearer.
+
+**5. Combine patterns with `or` when semantically equivalent**
+
+If multiple syntactic forms require identical transformations because they represent the same *semantic concept*, combine them:
+```scheme
+; Multiple forms that all mean "intern this constant"
+[(or `(quote ,(? complex-datum? ex))
+     (? string? ex))
+ (intern-constant ex)]
+```
+
+This is a judgment call based on semantic equivalence. Both quoted complex data and raw strings are "constants to intern" - same meaning, different syntax. Don't combine patterns just because they happen to use the same code if they represent different concepts.
+
+**6. Naming conventions for expressions and environments**
+
+Follow these conventions consistently:
+```scheme
+; Expressions: e, e1, e2, e* for lists
+(define (Expr e env)
+  (match e
+    [`(if ,e1 ,e2 ,e3) ...]
+    [`(let ([,x* ,e*] ...) ,body) ...]))
+
+; Environments: always env, env1, env2
+(define (transform expr env)
+  (let-values ([(result env1) (process expr env)])
+    ...))
+
+; Avoid: e for environments - that's reserved for expressions
+```
+
+**7. Use `let*-values` for nested `let-values`**
+
+Instead of nesting `let-values`:
+```scheme
+; AVOID: Nested let-values
+(let-values ([(new-test env1) (Expr test env)])
+  (let-values ([(new-conseq env2) (Expr conseq env1)])
+    (let-values ([(new-altern env3) (Expr altern env2)])
+      (values `(if ,new-test ,new-conseq ,new-altern) env3))))
+```
+
+Use `let*-values`:
+```scheme
+; PREFER: let*-values for sequential bindings
+(let*-values ([(new-test env1) (Expr test env)]
+              [(new-conseq env2) (Expr conseq env1)]
+              [(new-altern env3) (Expr altern env2)])
+  (values `(if ,new-test ,new-conseq ,new-altern) env3))
+```
+
+**8. Avoid parameter shadowing of struct constructors**
+
+When you have a struct and parameters of that type, use descriptive struct names:
+```scheme
+; AVOID: Parameter shadows constructor
+(struct env (map counter) #:transparent)
+(define (process env) ; 'env' parameter shadows 'env' constructor!
+  (env new-map new-counter)) ; Error: not a procedure
+
+; PREFER: Descriptive struct name
+(struct constant-env (map counter) #:transparent)
+(define (process env) ; No shadowing
+  (constant-env new-map new-counter)) ; Works correctly
+```
+
+**9. Shadow variable names instead of using numbered suffixes**
+
+When transforming a value, reuse the same name rather than adding suffixes. You rarely need both the old and new values:
+```scheme
+; AVOID: Numbered suffixes that clutter the code
+(let*-values ([(new-test env1) (Expr test env)]
+              [(new-conseq env2) (Expr conseq env1)]
+              [(new-altern env3) (Expr altern env2)])
+  (values `(if ,new-test ,new-conseq ,new-altern) env3))
+
+; PREFER: Shadow with the same name - cleaner and clearer
+(let*-values ([(test env) (Expr test env)]
+              [(conseq env) (Expr conseq env)]
+              [(altern env) (Expr altern env)])
+  (values `(if ,test ,conseq ,altern) env))
+```
+
+The shadowing makes it clear you're replacing the old value with its transformed version. Only use different names (like `test-old`, `test-new`) when you genuinely need to refer to both values at the same time, which is rare in functional code.
+
 ### Adding New Special Forms
 
 When adding a new special form (like `quasiquote`, `let`, etc.) that

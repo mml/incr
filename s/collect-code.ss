@@ -29,6 +29,7 @@
 
 (define (Expr expr) (match expr
   [`(quote ,c) (values expr '())]
+  [(? string? s) (values expr '())]
   [(? variable? x) (values x '())]
   [`(begin ,expr* __1)
     (let-values ([(expr* clabels) (Expr* expr*)])

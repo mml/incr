@@ -1,5 +1,7 @@
 #lang racket
 
+(require racket/match)
+
 (provide compile-port)
 (provide scramble-link-register?)
 (provide set-constant lookup-constant define-constant constant)
@@ -17,11 +19,17 @@
 (provide emit-Labels)
 (require racket/lazy-require)
 (lazy-require
-  ["machine.ss" (emit-label emit-Code emit-scheme-entry emit-bss unique-label)])
+  ["machine.ss" (emit-label emit-datum-label emit-Code emit-scheme-entry emit-bss unique-label)])
 
 (define (emit-Def x code env)
-  (emit-label (lookup x env))
-  (emit-Code code env))
+  (match code
+    [`(datum)
+     ; Datum labels are fully handled by emit-datum-label
+     (emit-datum-label (lookup x env))]
+    [_
+     ; Regular code labels go in .text section
+     (emit-label (lookup x env))
+     (emit-Code code env)]))
 
 (define (emit-Def* x* code*)
   (let ([env (map (lambda (x) (cons x (unique-label (string-append "C" (symbol->string x) "_")))) x*)])

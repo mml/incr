@@ -4,7 +4,7 @@
 (provide emit-epilogue)
 (require "compile-shared.ss")
 (require racket/trace)
-(provide emit-label emit-Code emit-scheme-entry emit-bss unique-label)
+(provide emit-label emit-datum-label emit-Code emit-scheme-entry emit-bss unique-label)
 
 ;;; https://riscv.org/wp-content/uploads/2015/01/riscv-calling.pdf
 ;;; https://en.wikichip.org/wiki/risc-v/registers
@@ -758,6 +758,20 @@
          (emit-label L-same-sign)
          (emit-label L-end))]
 
+      [(constant-ref)
+       (let ([label (primcall-operand1 expr)])
+         (let ([actual-label (lookup label env)])
+           (emit "  la a1,~a" actual-label #;(// "load label address"))
+           (emit "  ld a0,(a1)" #;(// "load value from label"))))]
+
+      [(constant-init)
+       (let ([label (primcall-operand1 expr)]
+             [value-expr (primcall-operand2 expr)])
+         (let ([actual-label (lookup label env)])
+           (emit-expr value-expr si env)
+           (emit "  la a1,~a" actual-label #;(// "load label address"))
+           (emit "  sd a0,(a1)" #;(// "store a0 to label"))))]
+
       [else (error 'compile-program "Unsupported primcall in ~s" (pretty-format expr))])
     (emit "/* }}} end ~a */" op )))
 
@@ -783,6 +797,13 @@
 
 (define (emit-label l)
   (emit "~a:" l))
+
+(define (emit-datum-label l)
+  ; Emit a datum label with storage in .data section
+  (emit ".section .data")
+  (emit "~a:" l)
+  (emit ".dword 0")
+  (emit ".section .text"))
 
 (define (emit-Closure label free* si env)
   (let* ([nfree (length free*)]               ; number of free variables

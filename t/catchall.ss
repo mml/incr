@@ -340,7 +340,7 @@
 
       ;; Pairs
       (test-case (eq? '(a) '(b))  "#f")
-      (test-case (eq? '(a) '(a))  "#f")  ; implementation-defined
+      (test-case (eq? '(a) '(a))  "#t")  ; implementation-defined (constant interning)
       (test-case (let ([x '(a . b)]) (eq? x x))  "#t")
       (test-case (let ([x (cons 'a 'b)])
                    (eq? x x))  "#t")
@@ -348,7 +348,7 @@
 
       ;; Strings (constants)
       (test-case (eq? "abc" "cba")  "#f")
-      (test-case (eq? "abc" "abc")  "#f")  ; implementation-defined
+      (test-case (eq? "abc" "abc")  "#t")  ; implementation-defined (constant interning)
       (test-case (let ([x "hi"]) (eq? x x))  "#t")
       (test-case (let ([x (string #\h #\i)]) (eq? x x))  "#t")
       (test-case (eq? (string #\h #\i)

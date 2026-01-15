@@ -32,6 +32,7 @@
 
 (define (Expr expr env) (match expr
   [`(quote ,c) expr]
+  [(? string? s) expr]
   [(? variable? x)
    (cond
      [(assq x env) =>

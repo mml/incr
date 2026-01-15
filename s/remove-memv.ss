@@ -35,7 +35,7 @@
 (define Memv
   (lambda (needle haystack)
     (let ([n (tmp)] [h (tmp)] [f (tmp)] [l (tmp)])
-      `(let ([,n ,needle] [,h ,haystack])
+      `(let ([,n ,(Expr needle)] [,h ,(Expr haystack)])
          (let ([,f (primcall void)])
            (begin
              (primcall set! ,f (lambda (,l)
